@@ -22,5 +22,10 @@ export interface VisualizationTheme {
     grid: string;
     panel: string;
   };
+  annotations: {
+    background: string;
+    border: string;
+    accent: string;
+  };
   fontFamily: string;
 }

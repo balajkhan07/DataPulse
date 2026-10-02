@@ -18,6 +18,7 @@ export interface VisualizationRendererProps<TConfig, TState> {
   subtitle: string;
   source: string;
   footer: string;
+  highlightedEntityIds?: string[];
 }
 
 export interface VisualizationDefinition<TConfig, TState> {

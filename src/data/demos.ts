@@ -19,6 +19,23 @@ function rows(csv: string): RawDataRow[] {
   return parseCsv(csv.trim()).rows;
 }
 
+const technologyMarks: Record<string, string> = {
+  Apple: "/entity-marks/apple.svg",
+  Google: "/entity-marks/google.svg",
+  Amazon: "/entity-marks/amazon.svg",
+  Microsoft: "/entity-marks/microsoft.svg",
+  Samsung: "/entity-marks/samsung.svg",
+  Facebook: "/entity-marks/meta.svg",
+  Meta: "/entity-marks/meta.svg",
+  Intel: "/entity-marks/intel.svg",
+  IBM: "/entity-marks/ibm.svg",
+  Nvidia: "/entity-marks/nvidia.svg",
+};
+
+function rowsWithImages(csv: string, categoryColumn: string, marks: Record<string, string>): RawDataRow[] {
+  return rows(csv).map((row) => ({ ...row, image: marks[String(row[categoryColumn] ?? "")] ?? null }));
+}
+
 export const demoDatasets: DemoDataset[] = [
   {
     id: "tech-leaders",
@@ -28,8 +45,8 @@ export const demoDatasets: DemoDataset[] = [
     subtitle: "Global brand value, 2018–2025",
     valueFormat: "currency",
     themeId: "modern-dark",
-    mapping: { time: "year", category: "company", value: "value", group: "sector" },
-    rows: rows(`
+    mapping: { time: "year", category: "company", value: "value", group: "sector", image: "image" },
+    rows: rowsWithImages(`
 year,company,value,sector
 2018,Apple,214480,Consumer Tech
 2018,Google,155506,Internet
@@ -94,7 +111,7 @@ year,company,value,sector
 2025,Nvidia,284200,Semiconductors
 2025,Meta,120700,Internet
 2025,Samsung,110600,Consumer Tech
-2025,Intel,21800,Semiconductors`),
+2025,Intel,21800,Semiconductors`, "company", technologyMarks),
   },
   {
     id: "world-population",

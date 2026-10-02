@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Braces, CheckCircle2, ChevronRight, Database, FileUp, Sparkles, Table2, TriangleAlert } from "lucide-react";
+import { Braces, CheckCircle2, ChevronRight, Database, FileUp, FolderOpen, Layers3, Sparkles, Table2, TriangleAlert } from "lucide-react";
 import { demoDatasets } from "@/data/demos";
 import { useEditorStore } from "@/store/editor-store";
 import type { ColumnMapping } from "@/types/data";
 import { FieldLabel, SelectInput } from "@/components/ui/controls";
 import { ImportDialog } from "@/components/editor/import-dialog";
+import { ProjectManagerDialog } from "@/components/editor/project-manager-dialog";
+import { TemplateDialog } from "@/components/editor/template-dialog";
 
 const mappingFields: Array<{ key: keyof ColumnMapping; label: string; required?: boolean }> = [
   { key: "time", label: "Time", required: true },
@@ -19,6 +21,8 @@ const mappingFields: Array<{ key: keyof ColumnMapping; label: string; required?:
 
 export function DatasetPanel() {
   const [importOpen, setImportOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [mappingOpen, setMappingOpen] = useState(true);
   const dataset = useEditorStore((state) => state.dataset);
   const loadDemo = useEditorStore((state) => state.loadDemo);
@@ -37,13 +41,11 @@ export function DatasetPanel() {
             </div>
             <div className="grid h-8 w-8 place-items-center rounded-lg bg-violet-500/10 text-violet-400"><Database size={15} /></div>
           </div>
-          <button
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-500 py-2.5 text-xs font-bold text-white shadow-lg shadow-violet-950/20 transition hover:bg-violet-400"
-            onClick={() => setImportOpen(true)}
-            type="button"
-          >
-            <FileUp size={14} /> Import dataset
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button className="flex items-center justify-center gap-1.5 rounded-lg border border-white/8 bg-white/[0.035] py-2 text-[10px] font-bold text-slate-300 hover:bg-white/[0.07]" onClick={() => setProjectsOpen(true)} type="button"><FolderOpen size={13} /> Projects</button>
+            <button className="flex items-center justify-center gap-1.5 rounded-lg border border-white/8 bg-white/[0.035] py-2 text-[10px] font-bold text-slate-300 hover:bg-white/[0.07]" onClick={() => setTemplatesOpen(true)} type="button"><Layers3 size={13} /> Templates</button>
+          </div>
+          <button className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-violet-500 py-2.5 text-xs font-bold text-white shadow-lg shadow-violet-950/20 transition hover:bg-violet-400" onClick={() => setImportOpen(true)} type="button"><FileUp size={14} /> Import dataset</button>
         </div>
 
         <div className="editor-scrollbar min-h-0 flex-1 overflow-y-auto p-3">
@@ -134,6 +136,8 @@ export function DatasetPanel() {
         </div>
       </aside>
       <ImportDialog onClose={() => setImportOpen(false)} open={importOpen} />
+      <ProjectManagerDialog onClose={() => setProjectsOpen(false)} open={projectsOpen} />
+      <TemplateDialog onClose={() => setTemplatesOpen(false)} open={templatesOpen} />
     </>
   );
 }

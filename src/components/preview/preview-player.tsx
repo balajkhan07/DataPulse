@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Maximize2, MonitorPlay, ShieldCheck } from "lucide-react";
+import { getActiveScene, getTimelineDuration } from "@/lib/timeline/timeline";
+import { StoryRenderer } from "@/scenes/story-renderer";
 import { useEditorStore } from "@/store/editor-store";
-import { getBarChartRaceTotalFrames } from "@/visualizations/bar-chart-race/state";
-import { getVisualizationDefinition } from "@/visualizations/registry";
 
 export function PreviewPlayer() {
   const project = useEditorStore((state) => state.project);
@@ -15,10 +15,7 @@ export function PreviewPlayer() {
   const setFrame = useEditorStore((state) => state.setFrame);
   const setPlaying = useEditorStore((state) => state.setPlaying);
   const frameRef = useRef(currentFrame);
-  const definition = getVisualizationDefinition(project.visualizationType);
-  const totalFrames = normalized
-    ? getBarChartRaceTotalFrames(normalized, project.video.fps, project.visualization.secondsPerPeriod)
-    : 1;
+  const totalFrames = getTimelineDuration(project.timeline);
 
   useEffect(() => {
     frameRef.current = currentFrame;
@@ -53,15 +50,8 @@ export function PreviewPlayer() {
     if (currentFrame > totalFrames) setFrame(totalFrames);
   }, [currentFrame, setFrame, totalFrames]);
 
-  const state = useMemo(
-    () => normalized
-      ? definition.getStateAtFrame({ dataset: normalized, frame: currentFrame, fps: project.video.fps, config: project.visualization })
-      : null,
-    [currentFrame, definition, normalized, project.video.fps, project.visualization],
-  );
-
-  const Renderer = definition.Renderer;
   const scaleLabel = `${Math.round((currentFrame / Math.max(totalFrames, 1)) * 100)}%`;
+  const activeScene = getActiveScene(project.timeline, currentFrame)?.scene;
 
   return (
     <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0a0b10]">
@@ -73,6 +63,7 @@ export function PreviewPlayer() {
         </div>
         <div className="flex items-center gap-3 text-[10px] text-slate-600">
           <span className="flex items-center gap-1.5"><ShieldCheck size={12} className="text-emerald-500" /> Safe area on</span>
+          <span className="capitalize text-slate-500">{activeScene?.type.replace("-", " ") ?? "No scene"}</span>
           <span className="rounded bg-white/[0.04] px-2 py-1 font-mono text-slate-500">{scaleLabel}</span>
           <button aria-label="Fit preview" className="text-slate-600 transition hover:text-white" type="button"><Maximize2 size={13} /></button>
         </div>
@@ -83,17 +74,8 @@ export function PreviewPlayer() {
           className="relative max-h-full max-w-full overflow-hidden rounded-md shadow-[0_28px_80px_rgba(0,0,0,0.55)] ring-1 ring-white/10"
           style={{ aspectRatio: `${project.video.width} / ${project.video.height}`, height: "100%" }}
         >
-          {state ? (
-            <Renderer
-              config={project.visualization}
-              footer={project.content.footer}
-              source={project.content.source}
-              state={state}
-              subtitle={project.content.subtitle}
-              themeId={project.themeId}
-              title={project.content.title}
-              video={project.video}
-            />
+          {normalized ? (
+            <StoryRenderer dataset={normalized} frame={currentFrame} project={project} />
           ) : (
             <div className="grid h-full w-full place-items-center bg-slate-950 px-8 text-center text-xs text-slate-500">
               Map valid time, category, and value columns to render the preview.

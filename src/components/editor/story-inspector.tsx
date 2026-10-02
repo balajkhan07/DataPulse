@@ -1,0 +1,116 @@
+"use client";
+
+import { ArrowLeft, ArrowRight, Captions, Film } from "lucide-react";
+import { useEditorStore } from "@/store/editor-store";
+import type { StoryEventType } from "@/types/story";
+import { FieldLabel, IconButton, SegmentedControl, SelectInput, TextInput, Toggle } from "@/components/ui/controls";
+
+const eventTypeLabels: Array<[StoryEventType, string]> = [
+  ["lead-change", "Leader changes"],
+  ["major-rise", "Major rank rises"],
+  ["major-fall", "Major rank falls"],
+  ["top-entry", "Top-N entries"],
+  ["top-exit", "Top-N exits"],
+  ["record-value", "Record values"],
+  ["milestone", "Milestones"],
+];
+
+export function StoryInspector() {
+  const project = useEditorStore((state) => state.project);
+  const selectedSceneId = useEditorStore((state) => state.playback.selectedSceneId);
+  const updateScene = useEditorStore((state) => state.updateScene);
+  const moveScene = useEditorStore((state) => state.moveScene);
+  const updateEvents = useEditorStore((state) => state.updateEvents);
+  const scene = project.timeline.scenes.find((candidate) => candidate.id === selectedSceneId) ?? project.timeline.scenes[0];
+  if (!scene) return null;
+  const sceneIndex = project.timeline.scenes.findIndex((candidate) => candidate.id === scene.id);
+  const durationSeconds = scene.durationFrames / project.video.fps;
+
+  const setDurationSeconds = (seconds: number) => {
+    updateScene(scene.id, (current) => ({ ...current, durationFrames: Math.max(1, Math.round(seconds * project.video.fps)) }));
+  };
+
+  return (
+    <div>
+      <section className="border-b border-white/[0.065] px-4 py-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500"><Film size={13} /> Selected scene</h3>
+          <div className="flex gap-0.5">
+            <IconButton aria-label="Move scene earlier" disabled={sceneIndex <= 0} onClick={() => moveScene(scene.id, -1)}><ArrowLeft size={13} /></IconButton>
+            <IconButton aria-label="Move scene later" disabled={sceneIndex >= project.timeline.scenes.length - 1} onClick={() => moveScene(scene.id, 1)}><ArrowRight size={13} /></IconButton>
+          </div>
+        </div>
+        <div className="space-y-4">
+          <div className="rounded-xl border border-violet-400/15 bg-violet-400/[0.055] px-3 py-2.5">
+            <p className="text-xs font-semibold capitalize text-violet-200">{scene.type.replace("-", " ")}</p>
+            <p className="mt-0.5 font-mono text-[9px] text-violet-300/45">{scene.id}</p>
+          </div>
+          <Toggle checked={scene.enabled} label="Include scene" onChange={(enabled) => updateScene(scene.id, (current) => ({ ...current, enabled }))} />
+          <div>
+            <FieldLabel detail={`${durationSeconds.toFixed(1)}s`}>Duration</FieldLabel>
+            <input className="editor-range w-full" max={scene.type === "visualization" ? 120 : 15} min={0.5} onChange={(event) => setDurationSeconds(Number(event.target.value))} step={0.5} type="range" value={durationSeconds} />
+          </div>
+
+          {scene.type === "hook" && (
+            <>
+              <div><FieldLabel>Title</FieldLabel><TextInput onChange={(event) => updateScene(scene.id, (current) => current.type === "hook" ? { ...current, config: { ...current.config, title: event.target.value } } : current)} value={scene.config.title} /></div>
+              <div><FieldLabel>Subtitle</FieldLabel><TextInput onChange={(event) => updateScene(scene.id, (current) => current.type === "hook" ? { ...current, config: { ...current.config, subtitle: event.target.value } } : current)} value={scene.config.subtitle} /></div>
+              <div><FieldLabel>Hook text</FieldLabel><TextInput onChange={(event) => updateScene(scene.id, (current) => current.type === "hook" ? { ...current, config: { ...current.config, hookText: event.target.value } } : current)} value={scene.config.hookText} /></div>
+              <div><FieldLabel>Background</FieldLabel><SelectInput onChange={(event) => updateScene(scene.id, (current) => current.type === "hook" ? { ...current, config: { ...current.config, background: event.target.value as "spotlight" | "gradient" | "solid" } } : current)} value={scene.config.background}><option value="spotlight">Accent spotlight</option><option value="gradient">Theme gradient</option><option value="solid">Solid</option></SelectInput></div>
+              <div><FieldLabel>Transition</FieldLabel><SelectInput onChange={(event) => updateScene(scene.id, (current) => current.type === "hook" ? { ...current, config: { ...current.config, transition: event.target.value as "fade" | "rise" } } : current)} value={scene.config.transition}><option value="rise">Gentle rise</option><option value="fade">Fade</option></SelectInput></div>
+            </>
+          )}
+
+          {scene.type === "visualization" && (
+            <Toggle checked={scene.config.annotationsEnabled} label="Show annotations" onChange={(annotationsEnabled) => updateScene(scene.id, (current) => current.type === "visualization" ? { ...current, config: { annotationsEnabled } } : current)} />
+          )}
+
+          {scene.type === "final-ranking" && (
+            <>
+              <div><FieldLabel>Title</FieldLabel><TextInput onChange={(event) => updateScene(scene.id, (current) => current.type === "final-ranking" ? { ...current, config: { ...current.config, title: event.target.value } } : current)} value={scene.config.title} /></div>
+              <div><FieldLabel detail={scene.config.topN}>Visible results</FieldLabel><input className="editor-range w-full" max={15} min={3} onChange={(event) => updateScene(scene.id, (current) => current.type === "final-ranking" ? { ...current, config: { ...current.config, topN: Number(event.target.value) } } : current)} type="range" value={scene.config.topN} /></div>
+              <Toggle checked={scene.config.showValues} label="Show final values" onChange={(showValues) => updateScene(scene.id, (current) => current.type === "final-ranking" ? { ...current, config: { ...current.config, showValues } } : current)} />
+              <Toggle checked={scene.config.showImages} label="Show entity marks" onChange={(showImages) => updateScene(scene.id, (current) => current.type === "final-ranking" ? { ...current, config: { ...current.config, showImages } } : current)} />
+            </>
+          )}
+
+          {scene.type === "outro" && (
+            <>
+              <div><FieldLabel>Closing line</FieldLabel><TextInput onChange={(event) => updateScene(scene.id, (current) => current.type === "outro" ? { ...current, config: { ...current.config, title: event.target.value } } : current)} value={scene.config.title} /></div>
+              <div><FieldLabel>Call to action</FieldLabel><TextInput onChange={(event) => updateScene(scene.id, (current) => current.type === "outro" ? { ...current, config: { ...current.config, cta: event.target.value } } : current)} value={scene.config.cta} /></div>
+            </>
+          )}
+        </div>
+      </section>
+
+      <section className="px-4 py-5">
+        <h3 className="mb-4 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500"><Captions size={13} /> Auto annotations</h3>
+        <div className="space-y-4">
+          <Toggle checked={project.events.enabled} label="Detect story moments" onChange={(enabled) => updateEvents({ enabled })} />
+          <div><FieldLabel>Frequency</FieldLabel><SegmentedControl onChange={(frequency) => updateEvents({ frequency })} options={[{ value: "low", label: "Low" }, { value: "medium", label: "Medium" }, { value: "high", label: "High" }]} value={project.events.frequency} /></div>
+          <div><FieldLabel detail={project.events.minimumImportance}>Minimum importance</FieldLabel><input className="editor-range w-full" max={100} min={40} onChange={(event) => updateEvents({ minimumImportance: Number(event.target.value) })} step={2} type="range" value={project.events.minimumImportance} /></div>
+          <div><FieldLabel detail={`${(project.events.durationFrames / project.video.fps).toFixed(1)}s`}>Annotation duration</FieldLabel><input className="editor-range w-full" max={5} min={1} onChange={(event) => updateEvents({ durationFrames: Math.round(Number(event.target.value) * project.video.fps) })} step={0.25} type="range" value={project.events.durationFrames / project.video.fps} /></div>
+          <div className="space-y-1.5">
+            <FieldLabel>Enabled moments</FieldLabel>
+            {eventTypeLabels.map(([type, label]) => (
+              <Toggle
+                checked={project.events.enabledTypes.includes(type)}
+                key={type}
+                label={label}
+                onChange={(enabled) => updateEvents({ enabledTypes: enabled ? [...project.events.enabledTypes, type] : project.events.enabledTypes.filter((candidate) => candidate !== type) })}
+              />
+            ))}
+          </div>
+          <div>
+            <FieldLabel>Milestones</FieldLabel>
+            <TextInput
+              onChange={(event) => updateEvents({ milestones: event.target.value.split(",").map((value) => Number(value.trim())).filter(Number.isFinite) })}
+              placeholder="1000000, 10000000"
+              value={project.events.milestones.join(", ")}
+            />
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}

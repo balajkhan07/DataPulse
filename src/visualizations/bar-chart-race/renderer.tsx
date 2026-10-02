@@ -3,6 +3,7 @@
 import { memo, useId, useMemo } from "react";
 import { scaleLinear } from "d3-scale";
 import { formatValue } from "@/lib/formatting/number";
+import { EntityMark } from "@/components/visualization/entity-mark";
 import { getTheme } from "@/themes";
 import type { BarChartRaceConfig } from "@/types/project";
 import type { VisualizationRendererProps } from "@/types/visualization";
@@ -22,6 +23,7 @@ function BarChartRaceRendererComponent({
   subtitle,
   source,
   footer,
+  highlightedEntityIds = [],
 }: VisualizationRendererProps<BarChartRaceConfig, BarChartRaceState>) {
   const theme = getTheme(themeId);
   const layout = useMemo(() => calculateBarChartLayout(video, config.topN), [video, config.topN]);
@@ -33,6 +35,8 @@ function BarChartRaceRendererComponent({
     .range([0, Math.max(40, layout.barMaxWidth - valueReserve)])
     .clamp(true);
   const maximumLabelCharacters = layout.portraitLabels ? 30 : 19;
+  const highlightedEntities = new Set(highlightedEntityIds);
+  const hasHighlight = highlightedEntities.size > 0;
 
   return (
     <svg
@@ -121,11 +125,12 @@ function BarChartRaceRendererComponent({
             const imageSize = Math.min(layout.rowHeight * 0.46, Math.min(video.width, video.height) * 0.045);
             const labelX = layout.labelX + (config.showImages ? imageSize + layout.labelSize * 0.65 : 0);
             const valueX = Math.min(layout.contentRight, layout.barStartX + barWidth + layout.valueSize * 0.65);
+            const isHighlighted = highlightedEntities.has(item.entityId);
 
             return (
               <g
                 key={item.entityId}
-                opacity={item.opacity * config.barOpacity}
+                opacity={item.opacity * config.barOpacity * (hasHighlight && !isHighlighted ? 0.48 : 1)}
                 transform={`translate(0 ${rowY})`}
               >
                 <text
@@ -139,32 +144,17 @@ function BarChartRaceRendererComponent({
                 </text>
 
                 {config.showImages && (
-                  item.image ? (
-                    <image
-                      clipPath={`circle(${imageSize / 2}px at ${imageSize / 2}px ${imageSize / 2}px)`}
-                      height={imageSize}
-                      href={item.image}
-                      preserveAspectRatio="xMidYMid slice"
-                      width={imageSize}
-                      x={layout.labelX}
-                      y={layout.portraitLabels ? 0 : (layout.rowHeight - imageSize) / 2}
-                    />
-                  ) : (
-                    <g transform={`translate(${layout.labelX} ${layout.portraitLabels ? 0 : (layout.rowHeight - imageSize) / 2})`}>
-                      <circle cx={imageSize / 2} cy={imageSize / 2} fill={color} opacity="0.2" r={imageSize / 2} />
-                      <text
-                        dominantBaseline="central"
-                        fill={theme.text.primary}
-                        fontSize={imageSize * 0.42}
-                        fontWeight="800"
-                        textAnchor="middle"
-                        x={imageSize / 2}
-                        y={imageSize / 2}
-                      >
-                        {item.label.slice(0, 1).toUpperCase()}
-                      </text>
-                    </g>
-                  )
+                  <EntityMark
+                    color={color}
+                    id={`${id}-${item.entityId}`}
+                    image={item.image}
+                    label={item.label}
+                    size={imageSize}
+                    style={config.imageStyle}
+                    textColor={theme.text.primary}
+                    x={layout.labelX}
+                    y={layout.portraitLabels ? 0 : (layout.rowHeight - imageSize) / 2}
+                  />
                 )}
 
                 <text
@@ -195,7 +185,7 @@ function BarChartRaceRendererComponent({
                   x={layout.barStartX}
                   y={barY}
                 />
-                {item.rank <= 3 && (
+                {(item.rank <= 3 || isHighlighted) && (
                   <rect
                     fill="none"
                     height={layout.barHeight}

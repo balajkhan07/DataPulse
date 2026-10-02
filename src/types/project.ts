@@ -1,7 +1,10 @@
-import type { ColumnMapping, MissingValueStrategy } from "@/types/data";
+import type { ColumnMapping, MissingValueStrategy, RawDataRow } from "@/types/data";
+import type { EventSettings, TimelineConfig } from "@/types/story";
 
 export type AspectRatioPreset = "portrait" | "landscape" | "square" | "feed";
 export type ValueFormat = "raw" | "integer" | "compact" | "currency" | "percentage";
+export type VideoMode = "short-form" | "long-form" | "custom";
+export type EntityImageStyle = "circle" | "rounded" | "square";
 
 export interface SafeAreaConfig {
   top: number;
@@ -15,6 +18,7 @@ export interface BarChartRaceConfig {
   showRank: boolean;
   showValues: boolean;
   showImages: boolean;
+  imageStyle: EntityImageStyle;
   barRadius: number;
   barOpacity: number;
   valueFormat: ValueFormat;
@@ -27,11 +31,17 @@ export interface BarChartRaceConfig {
 }
 
 export interface VideoConfig {
+  mode: VideoMode;
   width: number;
   height: number;
   fps: 24 | 30 | 60;
   aspectRatio: AspectRatioPreset;
   safeArea: SafeAreaConfig;
+}
+
+export interface ExportSettings {
+  quality: "draft" | "standard" | "high";
+  filename: string;
 }
 
 export interface ContentConfig {
@@ -42,18 +52,22 @@ export interface ContentConfig {
 }
 
 export interface ProjectConfig {
-  schemaVersion: 1;
+  schemaVersion: 2;
   id: string;
   name: string;
   visualizationType: "bar-chart-race";
   dataset: {
     name: string;
     mapping: ColumnMapping;
+    rows: RawDataRow[];
   };
   content: ContentConfig;
   visualization: BarChartRaceConfig;
   themeId: string;
   video: VideoConfig;
+  timeline: TimelineConfig;
+  events: EventSettings;
+  export: ExportSettings;
   createdAt: string;
   updatedAt: string;
 }

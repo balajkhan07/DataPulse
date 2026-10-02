@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Clapperboard, Gauge, LayoutTemplate, Palette, SlidersHorizontal, Type } from "lucide-react";
+import { BookOpen, Clapperboard, Gauge, LayoutTemplate, Palette, SlidersHorizontal, Type } from "lucide-react";
 import { useEditorStore } from "@/store/editor-store";
 import { themes } from "@/themes";
-import type { AspectRatioPreset, BarChartRaceConfig, VideoConfig } from "@/types/project";
+import type { AspectRatioPreset, BarChartRaceConfig, EntityImageStyle, VideoConfig, VideoMode } from "@/types/project";
 import { FieldLabel, SegmentedControl, SelectInput, TextInput, Toggle } from "@/components/ui/controls";
+import { StoryInspector } from "@/components/editor/story-inspector";
 
-type InspectorTab = "content" | "style" | "motion" | "video";
+type InspectorTab = "content" | "story" | "style" | "motion" | "video";
 
 const tabs: Array<{ id: InspectorTab; label: string; icon: typeof Type }> = [
   { id: "content", label: "Content", icon: Type },
+  { id: "story", label: "Story", icon: BookOpen },
   { id: "style", label: "Style", icon: Palette },
   { id: "motion", label: "Motion", icon: Gauge },
   { id: "video", label: "Video", icon: Clapperboard },
@@ -57,12 +59,13 @@ export function InspectorPanel() {
   const updateVisualization = useEditorStore((state) => state.updateVisualization);
   const setTheme = useEditorStore((state) => state.setTheme);
   const setAspectRatio = useEditorStore((state) => state.setAspectRatio);
+  const setVideoMode = useEditorStore((state) => state.setVideoMode);
   const setFps = useEditorStore((state) => state.setFps);
   const chart = project.visualization;
 
   return (
     <aside className="flex min-h-0 flex-col border-l border-white/[0.07] bg-[#10121a]">
-      <div className="grid grid-cols-4 border-b border-white/[0.07] px-2 pt-2">
+      <div className="grid grid-cols-5 border-b border-white/[0.07] px-1 pt-2">
         {tabs.map((item) => {
           const Icon = item.icon;
           return (
@@ -125,9 +128,19 @@ export function InspectorPanel() {
             <Section icon={SlidersHorizontal} title="Bar treatment">
               <RangeField detail={`${chart.barRadius}px`} label="Corner radius" max={40} min={0} onChange={(barRadius) => updateVisualization({ barRadius })} value={chart.barRadius} />
               <RangeField detail={`${Math.round(chart.barOpacity * 100)}%`} label="Opacity" max={1} min={0.3} onChange={(barOpacity) => updateVisualization({ barOpacity })} step={0.05} value={chart.barOpacity} />
+              <div>
+                <FieldLabel>Entity image shape</FieldLabel>
+                <SegmentedControl<EntityImageStyle>
+                  onChange={(imageStyle) => updateVisualization({ imageStyle })}
+                  options={[{ value: "circle", label: "Circle" }, { value: "rounded", label: "Rounded" }, { value: "square", label: "Square" }]}
+                  value={chart.imageStyle}
+                />
+              </div>
             </Section>
           </>
         )}
+
+        {tab === "story" && <StoryInspector />}
 
         {tab === "motion" && (
           <Section icon={Gauge} title="Animation">
@@ -155,6 +168,14 @@ export function InspectorPanel() {
         {tab === "video" && (
           <>
             <Section icon={Clapperboard} title="Canvas">
+              <div>
+                <FieldLabel>Video mode</FieldLabel>
+                <SegmentedControl<VideoMode>
+                  onChange={setVideoMode}
+                  options={[{ value: "short-form", label: "Short" }, { value: "long-form", label: "Long" }, { value: "custom", label: "Custom" }]}
+                  value={project.video.mode}
+                />
+              </div>
               <FieldLabel>Aspect ratio</FieldLabel>
               <div className="grid grid-cols-2 gap-2">
                 {([
