@@ -1,15 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { Cloud, Download, HelpCircle, Redo2, Save, Undo2 } from "lucide-react";
 import { useEditorStore } from "@/store/editor-store";
 import { IconButton } from "@/components/ui/controls";
+import { ExportDialog } from "@/components/export/export-dialog";
 
 export function TopBar() {
+  const [exportOpen, setExportOpen] = useState(false);
   const project = useEditorStore((state) => state.project);
   const persistence = useEditorStore((state) => state.persistence);
   const saveProject = useEditorStore((state) => state.saveProject);
 
   return (
+    <>
     <header className="flex h-14 shrink-0 items-center border-b border-white/[0.07] bg-[#0e1017] px-4">
       <div className="flex w-[234px] items-center gap-2.5">
         <div className="relative grid h-8 w-8 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-violet-400 to-violet-700 shadow-lg shadow-violet-950/40">
@@ -34,7 +38,7 @@ export function TopBar() {
           <button className="ml-1 flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-[11px] font-bold text-slate-300 transition hover:bg-white/[0.07] hover:text-white" onClick={saveProject} type="button"><Save size={13} /> Save</button>
           <button
             className="ml-1 flex items-center gap-2 rounded-lg border border-violet-300/20 bg-violet-500 px-3.5 py-2 text-[11px] font-bold text-white shadow-lg shadow-violet-950/25 transition hover:bg-violet-400"
-            onClick={() => window.alert("MP4 rendering is the next delivery phase. Phase 1 keeps preview and export frame logic identical so Remotion can consume this renderer directly.")}
+            onClick={() => setExportOpen(true)}
             type="button"
           >
             <Download size={13} /> Export video
@@ -42,5 +46,7 @@ export function TopBar() {
         </div>
       </div>
     </header>
+    <ExportDialog onClose={() => setExportOpen(false)} open={exportOpen} />
+    </>
   );
 }

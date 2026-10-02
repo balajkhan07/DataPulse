@@ -1,4 +1,6 @@
 import type { BarChartRaceConfig, ProjectConfig, VideoConfig, VideoMode } from "@/types/project";
+import { createDefaultExportConfig } from "@/lib/export/presets";
+import type { AudioConfig } from "@/types/export";
 import type { EventSettings, StoryScene, TimelineConfig } from "@/types/story";
 
 export const defaultBarChartRaceConfig: BarChartRaceConfig = {
@@ -36,6 +38,21 @@ export const defaultEventSettings: EventSettings = {
   milestones: [],
 };
 
+export const defaultAudioConfig: AudioConfig = {
+  enabled: false,
+  assetId: null,
+  fileName: null,
+  mimeType: null,
+  durationSeconds: null,
+  startOffsetSeconds: 0,
+  trimStartSeconds: 0,
+  trimEndSeconds: null,
+  volume: 0.72,
+  fadeInSeconds: 1,
+  fadeOutSeconds: 1.5,
+  loop: false,
+};
+
 export function createDefaultTimeline(
   fps: number,
   visualizationFrames = fps * 12,
@@ -48,6 +65,7 @@ export function createDefaultTimeline(
       type: "hook",
       enabled: true,
       durationFrames: fps * (longForm ? 5 : 2),
+      entryTransition: { type: "cut", durationFrames: 0 },
       config: {
         title: "The Race to Define Technology",
         subtitle: "Global brand value, 2018–2025",
@@ -61,6 +79,7 @@ export function createDefaultTimeline(
       type: "visualization",
       enabled: true,
       durationFrames: longForm ? Math.round(visualizationFrames * 1.8) : visualizationFrames,
+      entryTransition: { type: "crossfade", durationFrames: Math.round(fps * 0.45) },
       config: { annotationsEnabled: true },
     },
     {
@@ -68,6 +87,7 @@ export function createDefaultTimeline(
       type: "final-ranking",
       enabled: true,
       durationFrames: fps * (longForm ? 6 : 3),
+      entryTransition: { type: "slide", durationFrames: Math.round(fps * 0.4) },
       config: { title: "Final ranking", topN: 8, showValues: true, showImages: true },
     },
     {
@@ -75,6 +95,7 @@ export function createDefaultTimeline(
       type: "outro",
       enabled: true,
       durationFrames: fps * (longForm ? 4 : 2),
+      entryTransition: { type: "fade", durationFrames: Math.round(fps * 0.45) },
       config: { title: "The data keeps moving.", cta: "What should we explore next?" },
     },
   ];
@@ -85,7 +106,7 @@ export function createDefaultProject(): ProjectConfig {
   const now = new Date(0).toISOString();
   const fps = 30;
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     id: "demo-project",
     name: "Global Tech Leaders",
     visualizationType: "bar-chart-race",
@@ -110,7 +131,8 @@ export function createDefaultProject(): ProjectConfig {
     },
     timeline: createDefaultTimeline(fps),
     events: { ...defaultEventSettings },
-    export: { quality: "high", filename: "global-tech-leaders.mp4" },
+    export: createDefaultExportConfig("global-tech-leaders.mp4"),
+    audio: { ...defaultAudioConfig },
     createdAt: now,
     updatedAt: now,
   };

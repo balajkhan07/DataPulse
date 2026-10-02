@@ -15,7 +15,7 @@ export const themes: VisualizationTheme[] = [
     },
     chrome: { grid: "#FFFFFF0C", panel: "#FFFFFF0A" },
     annotations: { background: "#090C14", border: "#6C5CE7", accent: "#6C5CE7" },
-    fontFamily: "var(--font-sans)",
+    fontFamily: "Inter Variable, Inter, sans-serif",
   },
   {
     id: "clean-light",
@@ -31,7 +31,7 @@ export const themes: VisualizationTheme[] = [
     },
     chrome: { grid: "#151A2510", panel: "#FFFFFF80" },
     annotations: { background: "#FFFFFF", border: "#2E6BFF", accent: "#2E6BFF" },
-    fontFamily: "var(--font-sans)",
+    fontFamily: "Inter Variable, Inter, sans-serif",
   },
   {
     id: "neon-signal",
@@ -47,7 +47,7 @@ export const themes: VisualizationTheme[] = [
     },
     chrome: { grid: "#B7FF3612", panel: "#FFFFFF08" },
     annotations: { background: "#0B0718", border: "#B7FF36", accent: "#B7FF36" },
-    fontFamily: "var(--font-sans)",
+    fontFamily: "Inter Variable, Inter, sans-serif",
   },
   {
     id: "documentary",
@@ -63,7 +63,7 @@ export const themes: VisualizationTheme[] = [
     },
     chrome: { grid: "#F4EBDD0D", panel: "#F4EBDD08" },
     annotations: { background: "#211E19", border: "#D2B47A", accent: "#D2B47A" },
-    fontFamily: "var(--font-serif)",
+    fontFamily: "Source Serif 4 Variable, Georgia, serif",
   },
   {
     id: "sports-broadcast",
@@ -79,7 +79,7 @@ export const themes: VisualizationTheme[] = [
     },
     chrome: { grid: "#FFFFFF0D", panel: "#FFFFFF09" },
     annotations: { background: "#071A24", border: "#FFCF33", accent: "#FFCF33" },
-    fontFamily: "var(--font-sans)",
+    fontFamily: "Inter Variable, Inter, sans-serif",
   },
 ];
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { Maximize2, MonitorPlay, ShieldCheck } from "lucide-react";
+import { getAudioTiming, getAudioVolume } from "@/lib/export/audio";
 import { getActiveScene, getTimelineDuration } from "@/lib/timeline/timeline";
 import { StoryRenderer } from "@/scenes/story-renderer";
 import { useEditorStore } from "@/store/editor-store";
@@ -15,7 +16,9 @@ export function PreviewPlayer() {
   const setFrame = useEditorStore((state) => state.setFrame);
   const setPlaying = useEditorStore((state) => state.setPlaying);
   const frameRef = useRef(currentFrame);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const totalFrames = getTimelineDuration(project.timeline);
+  const audioTiming = getAudioTiming(project.audio, totalFrames, project.video.fps);
 
   useEffect(() => {
     frameRef.current = currentFrame;
@@ -50,6 +53,24 @@ export function PreviewPlayer() {
     if (currentFrame > totalFrames) setFrame(totalFrames);
   }, [currentFrame, setFrame, totalFrames]);
 
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !audioTiming) return;
+    const localFrame = currentFrame - audioTiming.startFrame;
+    if (!playing || localFrame < 0 || localFrame >= audioTiming.outputDurationFrames) {
+      audio.pause();
+      return;
+    }
+    const sourceFrame = audioTiming.loop
+      ? localFrame % audioTiming.sourceDurationFrames
+      : localFrame;
+    const expectedTime = (audioTiming.trimBeforeFrames + sourceFrame) / project.video.fps;
+    if (Math.abs(audio.currentTime - expectedTime) > 0.15) audio.currentTime = expectedTime;
+    audio.playbackRate = speed;
+    audio.volume = getAudioVolume(project.audio, localFrame, audioTiming.outputDurationFrames, project.video.fps);
+    if (audio.paused) void audio.play().catch(() => undefined);
+  }, [audioTiming, currentFrame, playing, project.audio, project.video.fps, speed]);
+
   const scaleLabel = `${Math.round((currentFrame / Math.max(totalFrames, 1)) * 100)}%`;
   const activeScene = getActiveScene(project.timeline, currentFrame)?.scene;
 
@@ -70,6 +91,7 @@ export function PreviewPlayer() {
       </div>
 
       <div className="preview-grid relative flex min-h-0 flex-1 items-center justify-center overflow-hidden p-5 lg:p-7">
+        {project.audio.assetId && <audio preload="auto" ref={audioRef} src={`/api/audio-assets/${project.audio.assetId}`} />}
         <div
           className="relative max-h-full max-w-full overflow-hidden rounded-md shadow-[0_28px_80px_rgba(0,0,0,0.55)] ring-1 ring-white/10"
           style={{ aspectRatio: `${project.video.width} / ${project.video.height}`, height: "100%" }}

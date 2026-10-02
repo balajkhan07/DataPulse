@@ -1,6 +1,6 @@
 # DataPulse
 
-DataPulse is a private visual-storytelling studio for turning structured datasets into deterministic, social-media-ready animations. Phase 2 adds a reusable production workflow around the Phase 1 visualization engine: saved projects, templates, entity marks, structured story events, and a frame-based scene timeline.
+DataPulse is a private visual-storytelling studio for turning structured datasets into deterministic, social-media-ready MP4 videos. Phase 3 adds production export around the shared Phase 1/2 engine: Remotion frames, FFmpeg encoding, audio, asset caching, render jobs, and downloadable output.
 
 The product model is deliberately broader than one chart:
 
@@ -30,23 +30,31 @@ Raw data → Mapping → Normalized data → Visualization state → Story → F
 - Short-form and long-form presets using the same scene and rendering system
 - Lead change, rank movement, top-N entry/exit, record, milestone, and fastest-growth detection
 - Importance-filtered, responsive annotations with event presentation kept separate from detection
+- Deterministic cut, fade, crossfade, and slide scene transitions
+- YouTube, Shorts, Reels, TikTok, Facebook, square, feed, and custom export presets
+- Draft through maximum quality settings with H.264 MP4 output
+- Local sequential render queue with progress, cancellation, failures, history, and collision-safe downloads
+- MP3/WAV soundtrack upload with offset, trimming, volume, fades, and optional looping
+- Content-addressed remote/embedded image resolution into job-local render assets
 
-MP4 rendering, audio, asset downloading/caching, and cloud persistence are intentionally deferred to Phase 3.
+Cloud persistence, assisted storytelling, and batch/headless commands remain future work.
 
-## Phase 2 workflow
+## Production workflow
 
 1. Open **Projects** to create or restore a local project.
 2. Import CSV/JSON or choose a bundled dataset and confirm its column mapping.
 3. Open **Templates** to apply design, pacing, safe-area, and annotation defaults without replacing data or copy.
 4. Use the **Story** inspector and scene timeline to select, reorder, enable, and time scenes.
 5. Configure detected moments, minimum importance, frequency, and milestones.
-6. Save the project. The full dataset and serializable configuration reopen in the browser later.
+6. Open **Export video**, select a platform preset, quality, and optional soundtrack.
+7. Apply the target dimensions to preview when desired, then render, monitor, and download the MP4.
+8. Save the project. The full dataset and serializable configuration reopen in the browser later.
 
 Projects currently use browser `localStorage`. This is deliberately behind `ProjectRepository`, so a file, database, or cloud implementation can replace it without changing the editor. Browser storage quotas make it suitable for personal projects and moderate datasets, not a long-term media library.
 
 ## Setup
 
-Requires Node.js 20.9 or newer.
+Requires Node.js 20.9 or newer, FFprobe on `PATH` for audio inspection, and a local Chrome/Chromium executable for Remotion. Set `REMOTION_BROWSER_EXECUTABLE` when the browser is not in a standard location.
 
 ```bash
 npm install
@@ -88,11 +96,11 @@ const state = definition.getStateAtFrame({
 });
 ```
 
-`BarChartRaceRenderer` receives only serializable configuration plus derived state. Ranking, easing, interpolation, and layout remain outside the component. D3 supplies the SVG value scale; React produces the shared SVG tree. `StoryRenderer` first resolves the active scene and delegates through the scene registry; the visualization scene still invokes that same bar-chart renderer. This makes every story frame reproducible and keeps the complete scene sequence suitable for both live preview and future Remotion composition.
+`BarChartRaceRenderer` receives only serializable configuration plus derived state. Ranking, easing, interpolation, and layout remain outside the component. D3 supplies the SVG value scale; React produces the shared SVG tree. `StoryRenderer` first resolves the active scene and delegates through the scene registry; the visualization scene still invokes that same bar-chart renderer. `DataPulseComposition` passes Remotion's current frame into this exact story renderer, so every preview and export frame follows the same path.
 
 ## Projects, templates, and scenes
 
-`ProjectConfig` schema version 2 embeds the raw scalar dataset, mapping, visualization settings, video mode, scenes, event settings, export settings, and timestamps. Normalized data remains derived so persisted source fields never leak into renderers. Zod validates saved projects before they enter the store.
+`ProjectConfig` schema version 3 embeds the raw scalar dataset, mapping, visualization settings, video mode, scenes/transitions, event settings, export settings, optional audio settings, and timestamps. Normalized data remains derived so persisted source fields never leak into renderers. Zod validates saved projects and render requests before they enter the store or queue.
 
 Templates are serializable configuration objects. Applying one updates theme, visualization treatment, pacing, scene defaults, video preset, safe area, and event selection while keeping dataset, mapping, and authored copy intact.
 
@@ -104,20 +112,21 @@ Detection in `src/lib/events/` is pure business logic over normalized data. It r
 
 ## Entity images
 
-The optional mapping `image` role accepts stable app paths, HTTPS URLs, and supported image data URLs. `resolveAssetReference` validates the reference and assigns a deterministic cache key. SVG marks preserve aspect ratio and render a colored initial underneath, so missing or failed images degrade gracefully. The cache key is the seam for Phase 3's download/cache resolver; production export must resolve remote assets before frame rendering.
+The optional mapping `image` role accepts stable app paths, HTTPS URLs, and supported image data URLs. `resolveAssetReference` validates the reference and assigns a deterministic cache key. SVG marks preserve aspect ratio and render a colored initial underneath, so missing or failed images degrade gracefully. At export time, approved remote/embedded images are written to a content-addressed cache and copied into the job-local public directory before frame rendering.
 
 ## Video export architecture
 
-The recommended Phase 3 path is Remotion with server-side FFmpeg encoding:
+The implemented export path uses Remotion with local FFmpeg encoding:
 
-1. Validate a versioned schema-v2 project JSON document.
-2. Load/cache any remote assets.
-3. Normalize the embedded dataset and feed Remotion's current frame into `StoryRenderer`.
-4. Resolve the active scene through the same scene registry used by preview.
-5. Render the same scene and visualization SVG trees.
-6. Encode H.264/AAC MP4 with platform presets and stream progress back to the editor.
+1. Validate a versioned schema-v3 project JSON document and export config.
+2. Retarget dimensions/FPS while preserving scene duration in seconds.
+3. Resolve local, embedded, and approved remote assets into a job-local public directory.
+4. Normalize the embedded dataset and feed Remotion's current frame into `StoryRenderer`.
+5. Render the same scene and visualization SVG trees used by preview.
+6. Schedule the optional soundtrack from the shared offset/trim/loop/fade functions.
+7. Encode H.264/AAC MP4, persist progress/history, and stream the collision-safe output.
 
-Remotion is preferred over screen recording because it gives deterministic frames, reliable resolution/FPS control, and a clean headless path. FFmpeg remains the final encoder and audio muxer. See [ARCHITECTURE.md](./ARCHITECTURE.md) for boundaries and the render-worker plan.
+Remotion is used instead of screen recording because it gives deterministic frames, reliable resolution/FPS control, cancellation, and a clean headless path. FFmpeg remains the final encoder and audio muxer. Runtime outputs, uploaded audio, asset cache, and job history live under the ignored `.datapulse/` directory. See [ARCHITECTURE.md](./ARCHITECTURE.md) for boundaries.
 
 ## Creating a theme
 
@@ -159,7 +168,7 @@ Event detection lives in `src/lib/events/` and runs against normalized data. Ext
 - deterministic event annotations and story controls
 - shared short-form and long-form scene architecture
 
-### Phase 3 — production export
+### Phase 3 — production export (implemented)
 
 - Remotion composition using the shared renderer
 - local render queue and progress events

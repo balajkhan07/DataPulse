@@ -5,6 +5,7 @@ import { demoDatasets, type DemoDataset } from "@/data/demos";
 import { suggestColumnMapping } from "@/lib/data/mapping";
 import { normalizeDataset } from "@/lib/data/normalization";
 import { inspectColumns } from "@/lib/data/parsers";
+import { prepareProjectForExport } from "@/lib/export/config";
 import { createDefaultProject, createDefaultTimeline, videoPresets } from "@/lib/project/defaults";
 import { createBrowserProjectRepository, type ProjectRepository, type ProjectSummary } from "@/lib/project/repository";
 import { parseProjectConfig } from "@/lib/project/schema";
@@ -14,6 +15,7 @@ import { getProjectTemplate } from "@/templates";
 import type { ColumnMapping, DatasetColumn, NormalizedDataset, RawDataRow, ValidationIssue } from "@/types/data";
 import type { AspectRatioPreset, BarChartRaceConfig, ContentConfig, ProjectConfig, VideoConfig, VideoMode } from "@/types/project";
 import type { EventSettings, StoryScene } from "@/types/story";
+import type { AudioConfig, ExportConfig } from "@/types/export";
 import { getBarChartRaceTotalFrames } from "@/visualizations/bar-chart-race/state";
 
 export interface DatasetSlice {
@@ -59,6 +61,9 @@ interface EditorStore {
   updateContent: (patch: Partial<ContentConfig>) => void;
   updateVisualization: (patch: Partial<BarChartRaceConfig>) => void;
   updateEvents: (patch: Partial<EventSettings>) => void;
+  updateExport: (patch: Partial<ExportConfig>) => void;
+  applyExportToProject: () => void;
+  updateAudio: (patch: Partial<AudioConfig>) => void;
   updateScene: (sceneId: string, update: (scene: StoryScene) => StoryScene) => void;
   selectScene: (sceneId: string) => void;
   moveScene: (sceneId: string, direction: -1 | 1) => void;
@@ -335,6 +340,22 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
   updateEvents: (patch) => set((state) => ({
     project: markUpdated({ ...state.project, events: { ...state.project.events, ...patch } }),
+    persistence: { ...state.persistence, dirty: true },
+  })),
+
+  updateExport: (patch) => set((state) => ({
+    project: markUpdated({ ...state.project, export: { ...state.project.export, ...patch } }),
+    persistence: { ...state.persistence, dirty: true },
+  })),
+
+  applyExportToProject: () => set((state) => ({
+    project: markUpdated(prepareProjectForExport(state.project, state.project.export)),
+    playback: { ...state.playback, currentFrame: 0, playing: false },
+    persistence: { ...state.persistence, dirty: true },
+  })),
+
+  updateAudio: (patch) => set((state) => ({
+    project: markUpdated({ ...state.project, audio: { ...state.project.audio, ...patch } }),
     persistence: { ...state.persistence, dirty: true },
   })),
 

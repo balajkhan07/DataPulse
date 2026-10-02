@@ -27,7 +27,7 @@ export function FinalRankingSceneRenderer({ project, dataset, scene, localFrame 
   const revealFrames = Math.max(1, project.video.fps * 0.12);
 
   return (
-    <svg aria-label={`${scene.config.title}, ${dataset.periods.at(-1)?.label ?? "final"}`} className="h-full w-full" role="img" viewBox={`0 0 ${width} ${height}`}>
+    <svg aria-label={`${scene.config.title}, ${dataset.periods.at(-1)?.label ?? "final"}`} role="img" style={{ height: "100%", width: "100%" }} viewBox={`0 0 ${width} ${height}`}>
       <SceneBackground height={height} id={id} themeId={project.themeId} width={width} />
       <g fontFamily={theme.fontFamily}>
         <text fill={theme.background.accent} fontSize={minDimension * 0.019} fontWeight="800" letterSpacing={minDimension * 0.003} x={contentLeft} y={project.video.safeArea.top + minDimension * 0.035}>

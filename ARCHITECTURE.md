@@ -2,9 +2,9 @@
 
 ## 1. Decision summary
 
-DataPulse is a single Next.js application with framework-independent data, timeline, event, and animation modules. It uses registries for scenes and visualizations, pure functions for every frame calculation, a React/SVG presentation layer, and a serializable project model. The future export worker will load the same project model and invoke the same story renderer through Remotion.
+DataPulse is a single Next.js application with framework-independent data, timeline, event, export, and animation modules. It uses registries for scenes and visualizations, pure functions for every frame calculation, a React/SVG presentation layer, and a serializable project model. The local export worker loads the same project model and invokes the same story renderer through Remotion.
 
-The initial deployment is intentionally monolithic. A local render worker can be split into a separate process when MP4 export is added, but the data model and rendering modules remain shared packages rather than duplicated services.
+The initial deployment is intentionally monolithic. The local render queue currently runs in the Next.js Node process and can later move to a separate process without changing the project, composition, or rendering modules.
 
 ## 2. Rendering strategy: D3 calculations + React SVG
 
@@ -20,9 +20,9 @@ D3 is used for calculations, not imperative transitions. React renders the SVG f
 
 ## 3. MP4 strategy: Remotion + FFmpeg
 
-Remotion should own frame orchestration and composition timing. FFmpeg should encode frames, mux audio, and write H.264 MP4. This combination supports deterministic replay, known duration/FPS/resolution, server-side progress, and exact parity with browser preview.
+Remotion owns frame orchestration and composition timing. FFmpeg encodes frames, muxes AAC audio, and writes H.264 MP4. This combination supports deterministic replay, known duration/FPS/resolution, server-side progress, and exact parity with browser preview.
 
-The export composition must import the registered visualization renderer. It must not introduce a second `VideoBarChart` implementation. A future local render worker will accept versioned project JSON, validate it, resolve assets, render frames, and emit progress events. The same path can later back a CLI.
+`DataPulseComposition` normalizes the embedded rows and invokes the same `StoryRenderer` used by `PreviewPlayer`; there is no `VideoBarChart` implementation. The render queue accepts versioned project JSON, validates it, resolves job-local assets, renders frames, and records progress. The same boundary can later back a CLI.
 
 ## 4. Dependency direction
 
@@ -118,7 +118,7 @@ scene + scene-local frame
 hook | visualization | final ranking | outro renderer
 ```
 
-The visualization scene maps its local frame onto the visualization's intrinsic duration and calls the registered visualization definition. Final ranking calls the same end-frame bar-chart state function and sorts that derived state. No scene uses timers or DOM transitions. Short-form and long-form modes only change configuration, aspect ratio, pacing, and durations; they do not select different implementations.
+The visualization scene maps its local frame onto the visualization's intrinsic duration and calls the registered visualization definition. Final ranking calls the same end-frame bar-chart state function and sorts that derived state. Scene entry transitions (`cut`, `fade`, `crossfade`, and `slide`) are derived from the absolute frame; outgoing scenes are frozen at their deterministic final frame when needed. No scene uses timers or DOM transitions. Short-form and long-form modes only change configuration, aspect ratio, pacing, and durations; they do not select different implementations.
 
 ## 10. State architecture
 
@@ -133,7 +133,7 @@ Project files persist only the versioned project document with an embedded raw d
 
 ## 11. Project model, persistence, and migration
 
-`ProjectConfig` is currently `schemaVersion: 2`. External/persisted JSON is validated through Zod before it reaches the store. The current parser migrates Phase 1 documents by adding embedded rows, image treatment, video mode, timeline, event, and export defaults. Future migrations follow the same explicit boundary:
+`ProjectConfig` is currently `schemaVersion: 3`. External/persisted JSON is validated through Zod before it reaches the store or render queue. The parser migrates Phase 1 and Phase 2 documents by adding embedded rows, scene transitions, explicit export dimensions/codecs, and soundtrack defaults. Future migrations follow the same explicit boundary:
 
 ```text
 unknown JSON → schema discriminator → vN migration → current schema → ProjectConfig
@@ -157,23 +157,35 @@ Story detection is independent of rendering. `detectStoryEvents` covers leadersh
 
 The normalized model accepts optional image references. `resolveAssetReference` allows app-root paths, HTTPS URLs, and supported image data URLs, rejects unstable/unsupported schemes, and creates a deterministic cache key. `EntityMark` renders in SVG at responsive layout dimensions, applies circle/rounded/square clipping, preserves aspect ratio, and leaves a colored initial fallback behind a missing image.
 
-Production rendering cannot rely on remote availability. Phase 3 must use the existing cache key boundary to download approved remote images into a content-addressed local cache, record dimensions/media type, and expose stable local paths to preview and Remotion. Uploaded filenames must never determine filesystem paths directly.
+Production rendering does not rely on remote availability during frame generation. Before bundling, the asset resolver copies app assets into a job-local public directory, decodes supported embedded images, and downloads HTTPS images into a SHA-256 content-addressed cache. Remote hosts are DNS-checked against private address ranges, redirects are revalidated, types are allow-listed, and payloads are capped. Failed optional images produce warnings and retain the renderer's initial fallback. Uploaded filenames never determine filesystem paths.
 
-## 15. Proposed Phase 3 render boundary
+## 15. Phase 3 render boundary
 
 ```text
 Editor → POST validated project render request
                   ↓
-          local render queue
+       persistent local render queue
                   ↓
-        asset manifest + resolution/cache
+      job-local assets + resolution/cache
                   ↓
  StoryRenderer in Remotion → frames → FFmpeg MP4
                   ↓
-       progress stream + output record
+        polled progress + output record
 ```
 
-The first implementation can use a Next.js route to enqueue work and a local Node worker process. A distributed queue, object storage, and multi-tenant controls are unnecessary for the private-tool stage.
+Render jobs are appended to `.datapulse/render-jobs.json`, snapshots are immutable per job, outputs never overwrite an existing MP4, and one job runs at a time. Active jobs expose frame/encode stages and can be cancelled through Remotion's cancellation signal. Completed output is streamed through an ID-based route rather than exposing filesystem paths. A distributed queue, object storage, and multi-tenant controls remain unnecessary for the private-tool stage.
+
+```text
+validated ProjectConfig v3
+      ↓ prepareProjectForExport (dimensions, FPS retiming, safe area)
+resolved project + job-local public assets
+      ↓ Remotion bundle + composition metadata
+StoryRenderer(frame, project, normalized dataset)
+      ↓ H.264 video + optional trimmed/looped/faded audio
+AAC/MP4 output + persistent job metrics
+```
+
+Audio uploads accept content-verified MP3/WAV files and use UUID storage names. FFprobe records source duration. Both preview and composition derive offset, trim, loop duration, volume, and fade envelopes from the same pure functions.
 
 ## 16. Folder structure
 
@@ -182,6 +194,7 @@ src/
   app/                         Next.js route and global styling
   components/
     editor/                    shell, import, mapping, inspector
+    export/                    preset, audio, progress, history workflow
     preview/                   shared-renderer preview host
     timeline/                  frame-based playback controls
     visualization/             shared entity-mark primitives
@@ -194,9 +207,12 @@ src/
     events/                    detection, presentation, annotation schedule
     formatting/                centralized value formatting
     project/                   defaults, schema/migrations, repository
+    export/                    presets, retiming, filenames, audio envelopes
     templates/                 pure template application
     timeline/                  scene timing and reordering
   scenes/                      scene registry and shared story renderers
+  remotion/                    composition entry and shared-renderer host
+  server/export/               asset resolver, media probe, job store/queue
   store/                       persistent and transient editor slices/actions
   templates/                   built-in configuration-only templates
   themes/                      serializable theme definitions
@@ -214,6 +230,8 @@ src/
 - `StoryInspector`: selected-scene controls plus event type, importance, frequency, and milestone settings.
 - `PreviewPlayer`: advances the story-frame clock and invokes `StoryRenderer`.
 - `StoryRenderer`: maps a frame to a scene and invokes the registered scene renderer.
+- `DataPulseComposition`: feeds Remotion's frame into `StoryRenderer` and schedules optional audio.
+- `ExportDialog`: presets, quality, audio, progress, cancellation, history, and download.
 - `BarChartRaceRenderer`: stateless shared SVG output.
 - `TimelineControls`: scene order/selection plus play, pause, restart, speed, and deterministic seeking.
 - `ImportDialog`: file/paste parsing and actionable parse errors.
@@ -221,4 +239,4 @@ src/
 
 ## 18. Testing priorities
 
-Business logic has focused tests for CSV/JSON parsing, normalization, duplicate handling, formatting, deterministic interpolation/ranking, final ranking reuse, all event boundaries, annotation selection, scene timing/reordering, template application, repository loading/ordering, and project schema round-trip/migration. Phase 3 should add asset-manifest/cache tests, Remotion frame parity, render-job lifecycle, and output validation. Presentational markup should be covered with targeted interaction tests only when behavior warrants it.
+Business logic has focused tests for CSV/JSON parsing, normalization, duplicate handling, formatting, deterministic interpolation/ranking, final ranking reuse, all event boundaries, annotation selection, scene timing/reordering/transitions, export retiming, audio envelopes, template application, repository loading/ordering, and project schema round-trip/migration. End-to-end validation renders real portrait and landscape MP4 files and inspects codecs, dimensions, duration, frames, and audio with FFprobe/FFmpeg. Presentational markup should be covered with targeted interaction tests only when behavior warrants it.

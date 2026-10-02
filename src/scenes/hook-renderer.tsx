@@ -24,7 +24,7 @@ export function HookSceneRenderer({ project, scene, localFrame }: SceneRendererP
   const lines = splitSceneTitle(scene.config.title, portrait ? 21 : 34);
 
   return (
-    <svg aria-label={`Hook scene: ${scene.config.title}`} className="h-full w-full" role="img" viewBox={`0 0 ${width} ${height}`}>
+    <svg aria-label={`Hook scene: ${scene.config.title}`} role="img" style={{ height: "100%", width: "100%" }} viewBox={`0 0 ${width} ${height}`}>
       <SceneBackground height={height} id={id} themeId={project.themeId} variant={scene.config.background} width={width} />
       <g fontFamily={theme.fontFamily} opacity={opacity} transform={`translate(0 ${offset})`}>
         <text fill={theme.background.accent} fontSize={minDimension * 0.021} fontWeight="800" letterSpacing={minDimension * 0.004} x={contentX} y={contentY - minDimension * 0.11}>

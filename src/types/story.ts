@@ -1,10 +1,17 @@
 export type SceneType = "hook" | "visualization" | "final-ranking" | "outro";
+export type SceneTransitionType = "cut" | "fade" | "crossfade" | "slide";
+
+export interface SceneTransitionConfig {
+  type: SceneTransitionType;
+  durationFrames: number;
+}
 
 interface BaseStoryScene<TType extends SceneType, TConfig> {
   id: string;
   type: TType;
   enabled: boolean;
   durationFrames: number;
+  entryTransition: SceneTransitionConfig;
   config: TConfig;
 }
 

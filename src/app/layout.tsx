@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import "@fontsource-variable/inter/index.css";
+import "@fontsource-variable/source-serif-4/index.css";
 import "./globals.css";
 
 export const metadata: Metadata = {

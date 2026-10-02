@@ -45,7 +45,7 @@ function VisualizationSceneContent({
   const Renderer = definition.Renderer;
 
   return (
-    <div className="relative h-full w-full">
+    <div style={{ height: "100%", position: "relative", width: "100%" }}>
       <Renderer
         config={project.visualization}
         footer={project.content.footer}

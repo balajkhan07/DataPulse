@@ -17,7 +17,7 @@ export function OutroSceneRenderer({ project, scene, localFrame }: SceneRenderer
   const titleSize = minDimension * (height > width ? 0.095 : 0.075);
 
   return (
-    <svg aria-label={`Outro scene: ${scene.config.title}`} className="h-full w-full" role="img" viewBox={`0 0 ${width} ${height}`}>
+    <svg aria-label={`Outro scene: ${scene.config.title}`} role="img" style={{ height: "100%", width: "100%" }} viewBox={`0 0 ${width} ${height}`}>
       <SceneBackground height={height} id={id} themeId={project.themeId} width={width} />
       <g fontFamily={theme.fontFamily} opacity={progress} textAnchor="middle" transform={`translate(0 ${(1 - progress) * minDimension * 0.06})`}>
         <circle cx={width / 2} cy={height * 0.27} fill={theme.background.accent} opacity="0.16" r={minDimension * 0.095} />

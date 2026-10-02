@@ -1,4 +1,5 @@
 import type { ColumnMapping, MissingValueStrategy, RawDataRow } from "@/types/data";
+import type { AudioConfig, ExportConfig } from "@/types/export";
 import type { EventSettings, TimelineConfig } from "@/types/story";
 
 export type AspectRatioPreset = "portrait" | "landscape" | "square" | "feed";
@@ -39,11 +40,6 @@ export interface VideoConfig {
   safeArea: SafeAreaConfig;
 }
 
-export interface ExportSettings {
-  quality: "draft" | "standard" | "high";
-  filename: string;
-}
-
 export interface ContentConfig {
   title: string;
   subtitle: string;
@@ -52,7 +48,7 @@ export interface ContentConfig {
 }
 
 export interface ProjectConfig {
-  schemaVersion: 2;
+  schemaVersion: 3;
   id: string;
   name: string;
   visualizationType: "bar-chart-race";
@@ -67,7 +63,8 @@ export interface ProjectConfig {
   video: VideoConfig;
   timeline: TimelineConfig;
   events: EventSettings;
-  export: ExportSettings;
+  export: ExportConfig;
+  audio: AudioConfig;
   createdAt: string;
   updatedAt: string;
 }

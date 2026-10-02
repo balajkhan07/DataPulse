@@ -9,7 +9,7 @@ function omitKey<T extends object, K extends keyof T>(value: T, key: K): Omit<T,
 }
 
 describe("project config schema", () => {
-  it("round-trips a serializable version 2 project", () => {
+  it("round-trips a serializable version 3 project", () => {
     const project = createDefaultProject();
     expect(projectConfigSchema.safeParse(project).success).toBe(true);
     expect(parseProjectConfig(JSON.parse(serializeProject(project)))).toEqual(project);
@@ -34,8 +34,31 @@ describe("project config schema", () => {
       updatedAt: current.updatedAt,
     };
     const migrated = parseProjectConfig(legacy);
-    expect(migrated.schemaVersion).toBe(2);
+    expect(migrated.schemaVersion).toBe(3);
     expect(migrated.timeline.scenes.map((scene) => scene.type)).toEqual(["hook", "visualization", "final-ranking", "outro"]);
+    expect(migrated.audio.enabled).toBe(false);
+  });
+
+  it("migrates a Phase 2 project with export defaults and scene transitions", () => {
+    const current = createDefaultProject();
+    const legacy = {
+      ...current,
+      schemaVersion: 2,
+      timeline: {
+        scenes: current.timeline.scenes.map(({ entryTransition: omitted, ...scene }) => {
+          void omitted;
+          return scene;
+        }),
+      },
+      export: { quality: "standard", filename: "legacy.mp4" },
+      audio: undefined,
+    };
+    const migrated = parseProjectConfig(legacy);
+    expect(migrated.schemaVersion).toBe(3);
+    expect(migrated.export.quality).toBe("standard");
+    expect(migrated.export.filename).toBe("legacy.mp4");
+    expect(migrated.timeline.scenes[1].entryTransition.type).toBe("crossfade");
+    expect(migrated.audio).toEqual(expect.objectContaining({ enabled: false, assetId: null }));
   });
 
   it("rejects unsupported schema versions", () => {

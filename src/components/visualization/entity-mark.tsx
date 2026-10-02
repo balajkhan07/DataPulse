@@ -1,4 +1,5 @@
 import { resolveAssetReference } from "@/lib/assets/asset-reference";
+import { staticFile } from "remotion";
 import type { EntityImageStyle } from "@/types/project";
 
 interface EntityMarkProps {
@@ -17,6 +18,7 @@ export function EntityMark({ id, x, y, size, label, color, textColor, image, sty
   const clipId = `entity-mark-${id.replace(/[^a-z0-9_-]/gi, "-")}`;
   const radius = style === "circle" ? size / 2 : style === "rounded" ? size * 0.22 : 0;
   const reference = resolveAssetReference(image);
+  const source = reference?.kind === "local" ? staticFile(reference.source) : reference?.source;
 
   return (
     <g transform={`translate(${x} ${y})`}>
@@ -37,11 +39,11 @@ export function EntityMark({ id, x, y, size, label, color, textColor, image, sty
       >
         {label.slice(0, 1).toUpperCase()}
       </text>
-      {reference && (
+      {source && (
         <image
           clipPath={`url(#${clipId})`}
           height={size}
-          href={reference.source}
+          href={source}
           preserveAspectRatio="xMidYMid meet"
           width={size}
         />

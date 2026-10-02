@@ -2,7 +2,7 @@
 
 import { ArrowLeft, ArrowRight, Captions, Film } from "lucide-react";
 import { useEditorStore } from "@/store/editor-store";
-import type { StoryEventType } from "@/types/story";
+import type { SceneTransitionType, StoryEventType } from "@/types/story";
 import { FieldLabel, IconButton, SegmentedControl, SelectInput, TextInput, Toggle } from "@/components/ui/controls";
 
 const eventTypeLabels: Array<[StoryEventType, string]> = [
@@ -50,6 +50,42 @@ export function StoryInspector() {
             <FieldLabel detail={`${durationSeconds.toFixed(1)}s`}>Duration</FieldLabel>
             <input className="editor-range w-full" max={scene.type === "visualization" ? 120 : 15} min={0.5} onChange={(event) => setDurationSeconds(Number(event.target.value))} step={0.5} type="range" value={durationSeconds} />
           </div>
+          <div>
+            <FieldLabel>Entry transition</FieldLabel>
+            <SelectInput
+              onChange={(event) => updateScene(scene.id, (current) => ({
+                ...current,
+                entryTransition: {
+                  ...current.entryTransition,
+                  type: event.target.value as SceneTransitionType,
+                  durationFrames: event.target.value === "cut" ? 0 : Math.max(1, current.entryTransition.durationFrames),
+                },
+              }))}
+              value={scene.entryTransition.type}
+            >
+              <option value="cut">Cut</option>
+              <option value="fade">Fade from background</option>
+              <option value="crossfade">Crossfade</option>
+              <option value="slide">Slide</option>
+            </SelectInput>
+          </div>
+          {scene.entryTransition.type !== "cut" && (
+            <div>
+              <FieldLabel detail={`${(scene.entryTransition.durationFrames / project.video.fps).toFixed(2)}s`}>Transition duration</FieldLabel>
+              <input
+                className="editor-range w-full"
+                max={2}
+                min={0.1}
+                onChange={(event) => updateScene(scene.id, (current) => ({
+                  ...current,
+                  entryTransition: { ...current.entryTransition, durationFrames: Math.round(Number(event.target.value) * project.video.fps) },
+                }))}
+                step={0.05}
+                type="range"
+                value={scene.entryTransition.durationFrames / project.video.fps}
+              />
+            </div>
+          )}
 
           {scene.type === "hook" && (
             <>
@@ -57,7 +93,7 @@ export function StoryInspector() {
               <div><FieldLabel>Subtitle</FieldLabel><TextInput onChange={(event) => updateScene(scene.id, (current) => current.type === "hook" ? { ...current, config: { ...current.config, subtitle: event.target.value } } : current)} value={scene.config.subtitle} /></div>
               <div><FieldLabel>Hook text</FieldLabel><TextInput onChange={(event) => updateScene(scene.id, (current) => current.type === "hook" ? { ...current, config: { ...current.config, hookText: event.target.value } } : current)} value={scene.config.hookText} /></div>
               <div><FieldLabel>Background</FieldLabel><SelectInput onChange={(event) => updateScene(scene.id, (current) => current.type === "hook" ? { ...current, config: { ...current.config, background: event.target.value as "spotlight" | "gradient" | "solid" } } : current)} value={scene.config.background}><option value="spotlight">Accent spotlight</option><option value="gradient">Theme gradient</option><option value="solid">Solid</option></SelectInput></div>
-              <div><FieldLabel>Transition</FieldLabel><SelectInput onChange={(event) => updateScene(scene.id, (current) => current.type === "hook" ? { ...current, config: { ...current.config, transition: event.target.value as "fade" | "rise" } } : current)} value={scene.config.transition}><option value="rise">Gentle rise</option><option value="fade">Fade</option></SelectInput></div>
+              <div><FieldLabel>Title motion</FieldLabel><SelectInput onChange={(event) => updateScene(scene.id, (current) => current.type === "hook" ? { ...current, config: { ...current.config, transition: event.target.value as "fade" | "rise" } } : current)} value={scene.config.transition}><option value="rise">Gentle rise</option><option value="fade">Fade</option></SelectInput></div>
             </>
           )}
 
