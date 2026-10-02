@@ -1,0 +1,23 @@
+# dependencies
+/node_modules
+
+# Next.js
+/.next/
+/out/
+
+# production
+/build
+/coverage
+
+# local files
+.DS_Store
+*.pem
+.env*
+!.env.example
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# generated media
+/renders/
