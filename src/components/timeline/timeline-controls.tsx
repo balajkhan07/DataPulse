@@ -8,6 +8,7 @@ import type { SceneType } from "@/types/story";
 
 const sceneLabels: Record<SceneType, string> = {
   hook: "Hook",
+  text: "Story beat",
   visualization: "Chart race",
   "final-ranking": "Final ranking",
   outro: "Outro",
@@ -15,6 +16,7 @@ const sceneLabels: Record<SceneType, string> = {
 
 const sceneColors: Record<SceneType, string> = {
   hook: "border-fuchsia-400/25 bg-fuchsia-400/[0.08] text-fuchsia-300",
+  text: "border-amber-400/25 bg-amber-400/[0.08] text-amber-300",
   visualization: "border-violet-400/25 bg-violet-400/[0.08] text-violet-300",
   "final-ranking": "border-sky-400/25 bg-sky-400/[0.08] text-sky-300",
   outro: "border-emerald-400/25 bg-emerald-400/[0.08] text-emerald-300",

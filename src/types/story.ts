@@ -1,4 +1,4 @@
-export type SceneType = "hook" | "visualization" | "final-ranking" | "outro";
+export type SceneType = "hook" | "text" | "visualization" | "final-ranking" | "outro";
 export type SceneTransitionType = "cut" | "fade" | "crossfade" | "slide";
 
 export interface SceneTransitionConfig {
@@ -25,6 +25,15 @@ export interface HookSceneConfig {
 
 export interface VisualizationSceneConfig {
   annotationsEnabled: boolean;
+  periodStartIndex: number | null;
+  periodEndIndex: number | null;
+}
+
+export interface TextSceneConfig {
+  eyebrow: string;
+  title: string;
+  body: string;
+  kind: "context" | "insight" | "takeaway";
 }
 
 export interface FinalRankingSceneConfig {
@@ -41,6 +50,7 @@ export interface OutroSceneConfig {
 
 export type StoryScene =
   | BaseStoryScene<"hook", HookSceneConfig>
+  | BaseStoryScene<"text", TextSceneConfig>
   | BaseStoryScene<"visualization", VisualizationSceneConfig>
   | BaseStoryScene<"final-ranking", FinalRankingSceneConfig>
   | BaseStoryScene<"outro", OutroSceneConfig>;
@@ -57,7 +67,15 @@ export type StoryEventType =
   | "top-exit"
   | "record-value"
   | "milestone"
-  | "fastest-growth";
+  | "fastest-growth"
+  | "largest-decline"
+  | "comeback"
+  | "sustained-dominance"
+  | "rapid-rise"
+  | "collapse"
+  | "close-rivalry"
+  | "overtaking-streak"
+  | "sudden-breakout";
 
 export interface StoryEvent {
   id: string;
@@ -67,7 +85,10 @@ export interface StoryEvent {
   periodIndex: number;
   entityIds: string[];
   importance: number;
-  data: Record<string, string | number | boolean>;
+  confidence: number;
+  metrics: Record<string, string | number | boolean>;
+  reason: string;
+  suggestedHeadline?: string;
 }
 
 export interface EventSettings {
@@ -75,6 +96,7 @@ export interface EventSettings {
   enabledTypes: StoryEventType[];
   frequency: "low" | "medium" | "high";
   minimumImportance: number;
+  maximumAnnotations: number;
   durationFrames: number;
   topN: number;
   majorRankChange: number;

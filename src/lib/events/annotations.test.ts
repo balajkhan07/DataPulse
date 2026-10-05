@@ -23,7 +23,9 @@ function storyEvent(id: string, importance: number, periodIndex: number): StoryE
     periodIndex,
     entityIds: ["beta", "alpha"],
     importance,
-    data: { newLeader: "beta", previousLeader: "alpha" },
+    confidence: 1,
+    metrics: { newLeader: "beta", previousLeader: "alpha" },
+    reason: "The leader changed.",
   };
 }
 

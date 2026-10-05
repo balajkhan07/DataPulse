@@ -1,5 +1,6 @@
 import type { ColumnMapping, MissingValueStrategy, RawDataRow } from "@/types/data";
 import type { AudioConfig, ExportConfig } from "@/types/export";
+import type { StoryAssistantConfig } from "@/types/assistant";
 import type { EventSettings, TimelineConfig } from "@/types/story";
 
 export type AspectRatioPreset = "portrait" | "landscape" | "square" | "feed";
@@ -47,8 +48,25 @@ export interface ContentConfig {
   footer: string;
 }
 
+export interface SourceMetadata {
+  name: string;
+  url: string;
+  publisher: string;
+  retrievedDate: string;
+  notes: string;
+  licenseNotes: string;
+}
+
+export interface PublishingContent {
+  youtubeDescription: string;
+  shortCaption: string;
+  socialCaption: string;
+  sourceAttribution: string;
+  finalTakeaway: string;
+}
+
 export interface ProjectConfig {
-  schemaVersion: 3;
+  schemaVersion: 4;
   id: string;
   name: string;
   visualizationType: "bar-chart-race";
@@ -58,6 +76,9 @@ export interface ProjectConfig {
     rows: RawDataRow[];
   };
   content: ContentConfig;
+  sourceMetadata: SourceMetadata;
+  publishing: PublishingContent;
+  story: StoryAssistantConfig;
   visualization: BarChartRaceConfig;
   themeId: string;
   video: VideoConfig;

@@ -1,9 +1,11 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, Captions, Film } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, ArrowRight, Captions, Film, Plus, Trash2 } from "lucide-react";
 import { useEditorStore } from "@/store/editor-store";
 import type { SceneTransitionType, StoryEventType } from "@/types/story";
 import { FieldLabel, IconButton, SegmentedControl, SelectInput, TextInput, Toggle } from "@/components/ui/controls";
+import { StoryAssistant } from "@/components/editor/story-assistant";
 
 const eventTypeLabels: Array<[StoryEventType, string]> = [
   ["lead-change", "Leader changes"],
@@ -13,14 +15,26 @@ const eventTypeLabels: Array<[StoryEventType, string]> = [
   ["top-exit", "Top-N exits"],
   ["record-value", "Record values"],
   ["milestone", "Milestones"],
+  ["fastest-growth", "Fastest growth"],
+  ["largest-decline", "Largest decline"],
+  ["comeback", "Comebacks"],
+  ["sustained-dominance", "Sustained dominance"],
+  ["rapid-rise", "Rapid rises"],
+  ["collapse", "Collapses"],
+  ["close-rivalry", "Close rivalries"],
+  ["overtaking-streak", "Overtaking streaks"],
+  ["sudden-breakout", "Sudden breakouts"],
 ];
 
 export function StoryInspector() {
+  const [workspace, setWorkspace] = useState<"assist" | "edit">("assist");
   const project = useEditorStore((state) => state.project);
   const selectedSceneId = useEditorStore((state) => state.playback.selectedSceneId);
   const updateScene = useEditorStore((state) => state.updateScene);
   const moveScene = useEditorStore((state) => state.moveScene);
   const updateEvents = useEditorStore((state) => state.updateEvents);
+  const addTextScene = useEditorStore((state) => state.addTextScene);
+  const deleteScene = useEditorStore((state) => state.deleteScene);
   const scene = project.timeline.scenes.find((candidate) => candidate.id === selectedSceneId) ?? project.timeline.scenes[0];
   if (!scene) return null;
   const sceneIndex = project.timeline.scenes.findIndex((candidate) => candidate.id === scene.id);
@@ -32,10 +46,16 @@ export function StoryInspector() {
 
   return (
     <div>
+      <section className="border-b border-white/[0.065] px-4 py-3">
+        <SegmentedControl onChange={setWorkspace} options={[{ value: "assist", label: "Assist" }, { value: "edit", label: "Edit scenes" }]} value={workspace} />
+      </section>
+      {workspace === "assist" ? <StoryAssistant /> : <>
       <section className="border-b border-white/[0.065] px-4 py-5">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500"><Film size={13} /> Selected scene</h3>
           <div className="flex gap-0.5">
+            <IconButton aria-label="Add story beat after this scene" onClick={addTextScene}><Plus size={13} /></IconButton>
+            <IconButton aria-label="Delete scene" disabled={project.timeline.scenes.length <= 1} onClick={() => deleteScene(scene.id)}><Trash2 size={13} /></IconButton>
             <IconButton aria-label="Move scene earlier" disabled={sceneIndex <= 0} onClick={() => moveScene(scene.id, -1)}><ArrowLeft size={13} /></IconButton>
             <IconButton aria-label="Move scene later" disabled={sceneIndex >= project.timeline.scenes.length - 1} onClick={() => moveScene(scene.id, 1)}><ArrowRight size={13} /></IconButton>
           </div>
@@ -98,7 +118,16 @@ export function StoryInspector() {
           )}
 
           {scene.type === "visualization" && (
-            <Toggle checked={scene.config.annotationsEnabled} label="Show annotations" onChange={(annotationsEnabled) => updateScene(scene.id, (current) => current.type === "visualization" ? { ...current, config: { annotationsEnabled } } : current)} />
+            <Toggle checked={scene.config.annotationsEnabled} label="Show annotations" onChange={(annotationsEnabled) => updateScene(scene.id, (current) => current.type === "visualization" ? { ...current, config: { ...current.config, annotationsEnabled } } : current)} />
+          )}
+
+          {scene.type === "text" && (
+            <>
+              <div><FieldLabel>Eyebrow</FieldLabel><TextInput onChange={(event) => updateScene(scene.id, (current) => current.type === "text" ? { ...current, config: { ...current.config, eyebrow: event.target.value } } : current)} value={scene.config.eyebrow} /></div>
+              <div><FieldLabel>Headline</FieldLabel><TextInput onChange={(event) => updateScene(scene.id, (current) => current.type === "text" ? { ...current, config: { ...current.config, title: event.target.value } } : current)} value={scene.config.title} /></div>
+              <div><FieldLabel>Body</FieldLabel><TextInput onChange={(event) => updateScene(scene.id, (current) => current.type === "text" ? { ...current, config: { ...current.config, body: event.target.value } } : current)} value={scene.config.body} /></div>
+              <div><FieldLabel>Beat type</FieldLabel><SelectInput onChange={(event) => updateScene(scene.id, (current) => current.type === "text" ? { ...current, config: { ...current.config, kind: event.target.value as "context" | "insight" | "takeaway" } } : current)} value={scene.config.kind}><option value="context">Context</option><option value="insight">Insight</option><option value="takeaway">Takeaway</option></SelectInput></div>
+            </>
           )}
 
           {scene.type === "final-ranking" && (
@@ -125,6 +154,7 @@ export function StoryInspector() {
           <Toggle checked={project.events.enabled} label="Detect story moments" onChange={(enabled) => updateEvents({ enabled })} />
           <div><FieldLabel>Frequency</FieldLabel><SegmentedControl onChange={(frequency) => updateEvents({ frequency })} options={[{ value: "low", label: "Low" }, { value: "medium", label: "Medium" }, { value: "high", label: "High" }]} value={project.events.frequency} /></div>
           <div><FieldLabel detail={project.events.minimumImportance}>Minimum importance</FieldLabel><input className="editor-range w-full" max={100} min={40} onChange={(event) => updateEvents({ minimumImportance: Number(event.target.value) })} step={2} type="range" value={project.events.minimumImportance} /></div>
+          <div><FieldLabel detail={project.events.maximumAnnotations}>Maximum annotations</FieldLabel><input className="editor-range w-full" max={20} min={0} onChange={(event) => updateEvents({ maximumAnnotations: Number(event.target.value) })} type="range" value={project.events.maximumAnnotations} /></div>
           <div><FieldLabel detail={`${(project.events.durationFrames / project.video.fps).toFixed(1)}s`}>Annotation duration</FieldLabel><input className="editor-range w-full" max={5} min={1} onChange={(event) => updateEvents({ durationFrames: Math.round(Number(event.target.value) * project.video.fps) })} step={0.25} type="range" value={project.events.durationFrames / project.video.fps} /></div>
           <div className="space-y-1.5">
             <FieldLabel>Enabled moments</FieldLabel>
@@ -147,6 +177,7 @@ export function StoryInspector() {
           </div>
         </div>
       </section>
+      </>}
     </div>
   );
 }

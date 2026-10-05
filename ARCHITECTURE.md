@@ -2,7 +2,7 @@
 
 ## 1. Decision summary
 
-DataPulse is a single Next.js application with framework-independent data, timeline, event, export, and animation modules. It uses registries for scenes and visualizations, pure functions for every frame calculation, a React/SVG presentation layer, and a serializable project model. The local export worker loads the same project model and invokes the same story renderer through Remotion.
+DataPulse is a single Next.js application with framework-independent data, analysis, story-planning, timeline, event, export, and animation modules. It uses registries for scenes and visualizations, pure functions for every frame calculation, a React/SVG presentation layer, and a serializable project model. The local export worker loads the same project model and invokes the same story renderer through Remotion.
 
 The initial deployment is intentionally monolithic. The local render queue currently runs in the Next.js Node process and can later move to a separate process without changing the project, composition, or rendering modules.
 
@@ -35,7 +35,7 @@ Editor UI / Remotion composition
               ↓
  Visualization state + responsive layout
               ↓
- Timeline / events / data / animation / formatting
+ Timeline / story planning / analysis / events / data / animation / formatting
               ↓
        Serializable core types
 ```
@@ -81,6 +81,8 @@ Raw rows are untrusted. Parsing allows scalar JSON values and stringifies nested
 
 There are no timers, transitions, or browser APIs in this calculation. Preview uses `requestAnimationFrame` only to advance the frame counter. Seeking or exporting a frame calls exactly the same pure function.
 
+Adaptive pacing remains deterministic. An interval-weight plan is calculated from versioned interesting-period scores, and the scene-local frame is mapped through those weights to the visualization frame. Important intervals receive more of the fixed scene duration; low-change intervals receive less. Disabling adaptive pacing restores the linear frame map.
+
 ## 7. Responsive layout
 
 The SVG view box always matches the target video dimensions. `calculateBarChartLayout` derives:
@@ -108,7 +110,7 @@ The bar chart race implementation is isolated in `src/visualizations/bar-chart-r
 
 ## 9. Scene and story-frame pipeline
 
-`TimelineConfig` contains an ordered list of discriminated `StoryScene` objects. Hook, visualization, final-ranking, and outro scenes each carry their own serializable config and a positive `durationFrames`. Disabled scenes remain editable but consume no timeline time.
+`TimelineConfig` contains an ordered list of discriminated `StoryScene` objects. Hook, text/context, visualization, final-ranking, and outro scenes each carry their own serializable config and a positive `durationFrames`. Disabled scenes remain editable but consume no timeline time.
 
 ```text
 absolute story frame
@@ -118,13 +120,13 @@ scene + scene-local frame
 hook | visualization | final ranking | outro renderer
 ```
 
-The visualization scene maps its local frame onto the visualization's intrinsic duration and calls the registered visualization definition. Final ranking calls the same end-frame bar-chart state function and sorts that derived state. Scene entry transitions (`cut`, `fade`, `crossfade`, and `slide`) are derived from the absolute frame; outgoing scenes are frozen at their deterministic final frame when needed. No scene uses timers or DOM transitions. Short-form and long-form modes only change configuration, aspect ratio, pacing, and durations; they do not select different implementations.
+The visualization scene slices the normalized dataset to its optional period range, maps its local frame onto the visualization's intrinsic duration (linearly or through adaptive pacing), and calls the registered visualization definition. Final ranking calls the same end-frame bar-chart state function and sorts that derived state. Scene entry transitions (`cut`, `fade`, `crossfade`, and `slide`) are derived from the absolute frame; outgoing scenes are frozen at their deterministic final frame when needed. No scene uses timers or DOM transitions. Short-form and long-form modes only change configuration, aspect ratio, pacing, scene structure, and durations; they do not select different implementations.
 
 ## 10. State architecture
 
 The Zustand store has three logical slices in one typed store:
 
-- `project`: persistent, serializable content, embedded raw dataset, visualization, theme, video, timeline, events, and export configuration;
+- `project`: persistent, serializable content, embedded raw dataset, source metadata, publishing copy, story-assistant choices, visualization, theme, video, timeline, events, and export configuration;
 - `dataset`: raw import session, inferred columns, mapping, normalized derived data, and validation issues;
 - `playback`: temporary frame, playing flag, preview speed, and selected scene;
 - `persistence`: temporary saved-project summaries, dirty state, save time, and actionable errors.
@@ -133,7 +135,7 @@ Project files persist only the versioned project document with an embedded raw d
 
 ## 11. Project model, persistence, and migration
 
-`ProjectConfig` is currently `schemaVersion: 3`. External/persisted JSON is validated through Zod before it reaches the store or render queue. The parser migrates Phase 1 and Phase 2 documents by adding embedded rows, scene transitions, explicit export dimensions/codecs, and soundtrack defaults. Future migrations follow the same explicit boundary:
+`ProjectConfig` is currently `schemaVersion: 4`. External/persisted JSON is validated through Zod before it reaches the store or render queue. The parser migrates Phase 1–3 documents by adding embedded rows, scene transitions, explicit export dimensions/codecs, soundtrack defaults, period ranges, source/publishing metadata, and story-assistant defaults. Future migrations follow the same explicit boundary:
 
 ```text
 unknown JSON → schema discriminator → vN migration → current schema → ProjectConfig
@@ -149,17 +151,40 @@ Templates are immutable `ProjectTemplate` configuration objects and never contai
 
 ## 13. Event and annotation architecture
 
-Story detection is independent of rendering. `detectStoryEvents` covers leadership changes, major rises/falls, top-N entry/exit, per-entity records, configured milestone crossings, and fastest absolute growth. It returns structured, serializable event objects with time, involved entities, metadata, and a bounded 0–100 importance score. It does not generate display copy.
+Story detection is independent of rendering. `detectStoryEvents` covers leadership changes, major rises/falls, top-N entry/exit, records, milestones, fastest growth, largest decline, comeback, sustained dominance, rapid rise, collapse, close rivalry, overtaking streak, and sudden breakout. It returns structured, serializable event objects with time, involved entities, metrics, confidence, reason, and a bounded 0–100 importance score. `scoreStoryEvent` considers rank/value magnitude, leader/top-three impact, rarity, entity count, and confidence. Nearby duplicate events of the same type/entity cluster keep the strongest candidate. Detection does not own final display copy.
 
-`presentStoryEvent` owns display copy. `createAnnotationSchedule` filters enabled types and minimum importance, enforces frequency-specific spacing and caps, maps event periods to chart frames, and sets duration. The visualization scene memoizes this schedule for its stable dataset/config and only selects the active annotation per frame. The responsive overlay occupies a safe header region in portrait and an upper-right card in landscape; involved entity IDs are passed to the shared chart renderer for emphasis.
+`presentStoryEvent` owns display copy. `createAnnotationSchedule` filters enabled types and minimum importance, enforces frequency-specific spacing plus the explicit maximum-annotation cap, maps event periods to chart frames, and sets duration. The visualization scene memoizes this schedule for its stable dataset/config and only selects the active annotation per frame. The responsive overlay occupies a safe header region in portrait and an upper-right card in landscape; involved entity IDs are passed to the shared chart renderer for emphasis.
 
-## 14. Asset handling
+## 14. Phase 4 analysis and story-planning boundary
+
+```text
+versioned ProjectConfig + normalized dataset
+                 ↓
+        DatasetAnalysis v1
+ summary + entity stats + events + interesting periods
+                 ↓
+ rule-based provider / future optional AI provider
+ angles + hooks + titles + captions + takeaway
+                 ↓
+         deterministic story planner
+ editable scene draft + quality report
+                 ↓
+    existing timeline → renderer → MP4 export
+```
+
+`analyzeNormalizedDataset` is visualization-agnostic where the normalized rank/value model permits. `analyzeProject` caches by analysis version, dataset rows, column mapping, and event-analysis settings. Visual-only edits do not invalidate analysis. `analyzeProjects`, `generateProjectStoryDraft`, and `generateBatchStoryDrafts` expose the same logic without React, establishing the batch-review boundary.
+
+Text generation is grounded in `DatasetAnalysis`, project metadata, and source metadata. The default `ruleBasedContentProvider` requires no credentials. `ContentAIProvider` defines async hook, title, outline, and description operations for a future opt-in provider; provider output still becomes normal editable project configuration and never enters rendering as hidden state.
+
+Story presets are planner configuration, not renderers. Short presets create fast, event-led arcs. Long presets partition the period range into visualization chapters separated by measured context/insight beats, rather than stretching one chart. Draft application is explicit; regeneration only changes suggestions or a temporary preview until the user applies it.
+
+## 15. Asset handling
 
 The normalized model accepts optional image references. `resolveAssetReference` allows app-root paths, HTTPS URLs, and supported image data URLs, rejects unstable/unsupported schemes, and creates a deterministic cache key. `EntityMark` renders in SVG at responsive layout dimensions, applies circle/rounded/square clipping, preserves aspect ratio, and leaves a colored initial fallback behind a missing image.
 
 Production rendering does not rely on remote availability during frame generation. Before bundling, the asset resolver copies app assets into a job-local public directory, decodes supported embedded images, and downloads HTTPS images into a SHA-256 content-addressed cache. Remote hosts are DNS-checked against private address ranges, redirects are revalidated, types are allow-listed, and payloads are capped. Failed optional images produce warnings and retain the renderer's initial fallback. Uploaded filenames never determine filesystem paths.
 
-## 15. Phase 3 render boundary
+## 16. Phase 3 render boundary
 
 ```text
 Editor → POST validated project render request
@@ -187,7 +212,7 @@ AAC/MP4 output + persistent job metrics
 
 Audio uploads accept content-verified MP3/WAV files and use UUID storage names. FFprobe records source duration. Both preview and composition derive offset, trim, loop duration, volume, and fade envelopes from the same pure functions.
 
-## 16. Folder structure
+## 17. Folder structure
 
 ```text
 src/
@@ -203,8 +228,10 @@ src/
   lib/
     animation/                 easing and interpolation primitives
     data/                      parsing, inspection, mapping, normalization
+    analysis/                  summaries, entity statistics, cache boundary
     assets/                    validated, cache-ready asset references
     events/                    detection, presentation, annotation schedule
+    story/                     planning, pacing, grounded generation, quality, providers
     formatting/                centralized value formatting
     project/                   defaults, schema/migrations, repository
     export/                    presets, retiming, filenames, audio envelopes
@@ -222,12 +249,13 @@ src/
     bar-chart-race/            state, layout, renderer, definition, tests
 ```
 
-## 17. Major React components
+## 18. Major React components
 
 - `EditorShell`: three-panel creative workspace and timeline composition.
 - `DatasetPanel`: projects/templates/import entry points, demos, data quality, mapping, and raw preview.
 - `InspectorPanel`: content, story, theme, animation, and video-mode controls.
 - `StoryInspector`: selected-scene controls plus event type, importance, frequency, and milestone settings.
+- `StoryAssistant`: analysis, angles, hooks, titles, editable draft previews, source/publishing copy, and quality guidance.
 - `PreviewPlayer`: advances the story-frame clock and invokes `StoryRenderer`.
 - `StoryRenderer`: maps a frame to a scene and invokes the registered scene renderer.
 - `DataPulseComposition`: feeds Remotion's frame into `StoryRenderer` and schedules optional audio.
@@ -237,6 +265,6 @@ src/
 - `ImportDialog`: file/paste parsing and actionable parse errors.
 - `ProjectManagerDialog` and `TemplateDialog`: compact local-library and reusable-look workflows.
 
-## 18. Testing priorities
+## 19. Testing priorities
 
-Business logic has focused tests for CSV/JSON parsing, normalization, duplicate handling, formatting, deterministic interpolation/ranking, final ranking reuse, all event boundaries, annotation selection, scene timing/reordering/transitions, export retiming, audio envelopes, template application, repository loading/ordering, and project schema round-trip/migration. End-to-end validation renders real portrait and landscape MP4 files and inspects codecs, dimensions, duration, frames, and audio with FFprobe/FFmpeg. Presentational markup should be covered with targeted interaction tests only when behavior warrants it.
+Business logic has focused tests for CSV/JSON parsing, normalization, duplicate handling, formatting, deterministic interpolation/ranking, summary statistics, event scoring/clustering, dominance/rivalry detection, interesting periods, analysis cache invalidation, adaptive pacing, hook/title/caption generation, short/long drafts, batch draft generation, quality guidance, final ranking reuse, annotation selection, scene timing/reordering/transitions, export retiming, audio envelopes, template application, repository loading/ordering, and project schema round-trip/migration. End-to-end validation renders real generated and hand-authored portrait/landscape MP4 files and inspects codecs, dimensions, duration, frames, and audio with FFprobe/FFmpeg. Presentational markup should be covered with targeted interaction tests only when behavior warrants it.

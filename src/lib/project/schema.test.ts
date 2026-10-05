@@ -9,7 +9,8 @@ function omitKey<T extends object, K extends keyof T>(value: T, key: K): Omit<T,
 }
 
 describe("project config schema", () => {
-  it("round-trips a serializable version 3 project", () => {
+  const legacyEventTypes = new Set(["lead-change", "major-rise", "major-fall", "top-entry", "top-exit", "record-value", "milestone", "fastest-growth"]);
+  it("round-trips a serializable version 4 project with source and story metadata", () => {
     const project = createDefaultProject();
     expect(projectConfigSchema.safeParse(project).success).toBe(true);
     expect(parseProjectConfig(JSON.parse(serializeProject(project)))).toEqual(project);
@@ -34,7 +35,7 @@ describe("project config schema", () => {
       updatedAt: current.updatedAt,
     };
     const migrated = parseProjectConfig(legacy);
-    expect(migrated.schemaVersion).toBe(3);
+    expect(migrated.schemaVersion).toBe(4);
     expect(migrated.timeline.scenes.map((scene) => scene.type)).toEqual(["hook", "visualization", "final-ranking", "outro"]);
     expect(migrated.audio.enabled).toBe(false);
   });
@@ -51,14 +52,48 @@ describe("project config schema", () => {
         }),
       },
       export: { quality: "standard", filename: "legacy.mp4" },
+      events: {
+        ...omitKey(current.events, "maximumAnnotations"),
+        enabledTypes: current.events.enabledTypes.filter((type) => legacyEventTypes.has(type)),
+      },
       audio: undefined,
     };
     const migrated = parseProjectConfig(legacy);
-    expect(migrated.schemaVersion).toBe(3);
+    expect(migrated.schemaVersion).toBe(4);
     expect(migrated.export.quality).toBe("standard");
     expect(migrated.export.filename).toBe("legacy.mp4");
     expect(migrated.timeline.scenes[1].entryTransition.type).toBe("crossfade");
     expect(migrated.audio).toEqual(expect.objectContaining({ enabled: false, assetId: null }));
+    expect(migrated.story.analysisVersion).toBe(1);
+    expect(migrated.sourceMetadata.name).toBe(current.content.source);
+  });
+
+  it("migrates a Phase 3 project with analysis, source, pacing, and scene-range defaults", () => {
+    const current = createDefaultProject();
+    const legacy = {
+      ...current,
+      schemaVersion: 3,
+      sourceMetadata: undefined,
+      publishing: undefined,
+      story: undefined,
+      events: {
+        ...omitKey(current.events, "maximumAnnotations"),
+        enabledTypes: current.events.enabledTypes.filter((type) => legacyEventTypes.has(type)),
+      },
+      timeline: {
+        scenes: current.timeline.scenes.map((scene) => scene.type === "visualization"
+          ? { ...scene, config: omitKey(scene.config, "periodStartIndex") }
+          : scene).map((scene) => scene.type === "visualization"
+            ? { ...scene, config: omitKey(scene.config, "periodEndIndex") }
+            : scene),
+      },
+    };
+    const migrated = parseProjectConfig(legacy);
+    const visualization = migrated.timeline.scenes.find((scene) => scene.type === "visualization");
+    expect(migrated.schemaVersion).toBe(4);
+    expect(migrated.events.maximumAnnotations).toBeGreaterThan(0);
+    expect(visualization?.type === "visualization" && visualization.config.periodStartIndex).toBeNull();
+    expect(migrated.publishing.sourceAttribution).toContain(current.content.source);
   });
 
   it("rejects unsupported schema versions", () => {

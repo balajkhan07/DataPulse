@@ -1,6 +1,7 @@
 import type { BarChartRaceConfig, ProjectConfig, VideoConfig, VideoMode } from "@/types/project";
 import { createDefaultExportConfig } from "@/lib/export/presets";
 import type { AudioConfig } from "@/types/export";
+import type { StoryAssistantConfig } from "@/types/assistant";
 import type { EventSettings, StoryScene, TimelineConfig } from "@/types/story";
 
 export const defaultBarChartRaceConfig: BarChartRaceConfig = {
@@ -29,13 +30,38 @@ export const videoPresets: Record<VideoConfig["aspectRatio"], Pick<VideoConfig, 
 
 export const defaultEventSettings: EventSettings = {
   enabled: true,
-  enabledTypes: ["lead-change", "major-rise", "major-fall", "top-entry", "top-exit", "record-value", "milestone"],
+  enabledTypes: [
+    "lead-change",
+    "major-rise",
+    "major-fall",
+    "top-entry",
+    "top-exit",
+    "record-value",
+    "milestone",
+    "comeback",
+    "sustained-dominance",
+    "rapid-rise",
+    "collapse",
+    "close-rivalry",
+    "sudden-breakout",
+  ],
   frequency: "medium",
   minimumImportance: 68,
+  maximumAnnotations: 8,
   durationFrames: 84,
   topN: 8,
   majorRankChange: 3,
   milestones: [],
+};
+
+export const defaultStoryAssistantConfig: StoryAssistantConfig = {
+  analysisVersion: 1,
+  generationSeed: 0,
+  selectedCandidateId: null,
+  selectedHookId: null,
+  selectedTitleId: null,
+  presetId: "story-short",
+  adaptivePacing: { enabled: true, intensity: "medium" },
 };
 
 export const defaultAudioConfig: AudioConfig = {
@@ -80,7 +106,7 @@ export function createDefaultTimeline(
       enabled: true,
       durationFrames: longForm ? Math.round(visualizationFrames * 1.8) : visualizationFrames,
       entryTransition: { type: "crossfade", durationFrames: Math.round(fps * 0.45) },
-      config: { annotationsEnabled: true },
+      config: { annotationsEnabled: true, periodStartIndex: null, periodEndIndex: null },
     },
     {
       id: "scene-final",
@@ -106,7 +132,7 @@ export function createDefaultProject(): ProjectConfig {
   const now = new Date(0).toISOString();
   const fps = 30;
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     id: "demo-project",
     name: "Global Tech Leaders",
     visualizationType: "bar-chart-race",
@@ -121,6 +147,22 @@ export function createDefaultProject(): ProjectConfig {
       source: "Sample data · DataPulse",
       footer: "A changing leaderboard, frame by frame",
     },
+    sourceMetadata: {
+      name: "Sample data",
+      url: "",
+      publisher: "DataPulse",
+      retrievedDate: "",
+      notes: "",
+      licenseNotes: "",
+    },
+    publishing: {
+      youtubeDescription: "",
+      shortCaption: "",
+      socialCaption: "",
+      sourceAttribution: "Source: Sample data · DataPulse",
+      finalTakeaway: "",
+    },
+    story: { ...defaultStoryAssistantConfig, adaptivePacing: { ...defaultStoryAssistantConfig.adaptivePacing } },
     visualization: { ...defaultBarChartRaceConfig },
     themeId: "modern-dark",
     video: {

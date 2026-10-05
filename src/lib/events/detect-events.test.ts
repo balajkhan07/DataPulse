@@ -39,7 +39,7 @@ describe("detectStoryEvents", () => {
     expect(events.some((item) => item.type === "major-rise" && item.entityIds[0] === "delta")).toBe(true);
     expect(events.some((item) => item.type === "major-fall" && item.entityIds[0] === "alpha")).toBe(true);
     expect(events.some((item) => item.type === "record-value" && item.entityIds[0] === "beta")).toBe(true);
-    expect(events.some((item) => item.type === "milestone" && item.data.milestone === 150)).toBe(true);
+    expect(events.some((item) => item.type === "milestone" && item.metrics.milestone === 150)).toBe(true);
   });
 
   it("returns importance scores in the 0–100 range", () => {

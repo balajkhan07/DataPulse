@@ -1,8 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
+import { analyzeNormalizedDataset } from "@/lib/analysis/dataset-analysis";
+import { sliceNormalizedDataset } from "@/lib/data/slice-normalized";
 import { createAnnotationSchedule, getActiveAnnotation } from "@/lib/events/annotations";
-import { detectStoryEvents, eventOptionsFromSettings } from "@/lib/events/detect-events";
+import { eventOptionsFromSettings } from "@/lib/events/detect-events";
+import { createAdaptivePacingPlan, mapFrameWithAdaptivePacing } from "@/lib/story/pacing";
 import { mapSceneFrame } from "@/lib/timeline/timeline";
 import { AnnotationOverlay } from "@/scenes/annotation-overlay";
 import type { SceneRendererProps } from "@/scenes/types";
@@ -22,24 +25,38 @@ function VisualizationSceneContent({
   localFrame,
 }: Omit<SceneRendererProps, "scene"> & { scene: Extract<StoryScene, { type: "visualization" }> }) {
   const definition = getVisualizationDefinition(project.visualizationType);
-  const chartDuration = getBarChartRaceTotalFrames(dataset, project.video.fps, project.visualization.secondsPerPeriod);
-  const chartFrame = mapSceneFrame(localFrame, scene.durationFrames, chartDuration);
+  const sceneDataset = useMemo(
+    () => sliceNormalizedDataset(dataset, scene.config.periodStartIndex, scene.config.periodEndIndex),
+    [dataset, scene.config.periodEndIndex, scene.config.periodStartIndex],
+  );
+  const analysis = useMemo(
+    () => analyzeNormalizedDataset(sceneDataset, eventOptionsFromSettings(project.events)),
+    [project.events, sceneDataset],
+  );
+  const chartDuration = getBarChartRaceTotalFrames(sceneDataset, project.video.fps, project.visualization.secondsPerPeriod);
+  const pacingPlan = useMemo(
+    () => createAdaptivePacingPlan(sceneDataset.periods.length, analysis.interestingPeriods, project.story.adaptivePacing.intensity),
+    [analysis.interestingPeriods, project.story.adaptivePacing.intensity, sceneDataset.periods.length],
+  );
+  const chartFrame = project.story.adaptivePacing.enabled
+    ? mapFrameWithAdaptivePacing(localFrame, scene.durationFrames, chartDuration, pacingPlan)
+    : mapSceneFrame(localFrame, scene.durationFrames, chartDuration);
   const state = definition.getStateAtFrame({
-    dataset,
+    dataset: sceneDataset,
     frame: chartFrame,
     fps: project.video.fps,
     config: project.visualization,
   });
   const annotations = useMemo(
     () => createAnnotationSchedule(
-      detectStoryEvents(dataset, eventOptionsFromSettings(project.events)),
-      dataset,
-      getBarChartRaceTotalFrames(dataset, project.video.fps, project.visualization.secondsPerPeriod),
+      analysis.events.filter((event) => project.events.enabledTypes.includes(event.type)),
+      sceneDataset,
+      getBarChartRaceTotalFrames(sceneDataset, project.video.fps, project.visualization.secondsPerPeriod),
       project.video.fps,
       project.events,
       project.visualization,
     ),
-    [dataset, project.events, project.video.fps, project.visualization],
+    [analysis.events, project.events, project.video.fps, project.visualization, sceneDataset],
   );
   const annotation = scene.config.annotationsEnabled ? getActiveAnnotation(annotations, chartFrame) : null;
   const Renderer = definition.Renderer;

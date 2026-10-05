@@ -4,7 +4,6 @@ import type { BarChartRaceConfig } from "@/types/project";
 import type { EventSettings, ScheduledAnnotation, StoryEvent } from "@/types/story";
 
 const minimumGapSeconds = { low: 4.5, medium: 2.8, high: 1.4 } as const;
-const maximumAnnotations = { low: 4, medium: 8, high: 14 } as const;
 
 export function createAnnotationSchedule(
   events: StoryEvent[],
@@ -34,7 +33,7 @@ export function createAnnotationSchedule(
     selected.push(candidate);
   }
 
-  return selected.slice(0, maximumAnnotations[settings.frequency]).map(({ event, startFrame }) => ({
+  return selected.slice(0, settings.maximumAnnotations).map(({ event, startFrame }) => ({
     eventId: event.id,
     eventType: event.type,
     startFrame,

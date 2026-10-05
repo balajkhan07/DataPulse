@@ -10,11 +10,14 @@ import { createDefaultProject, createDefaultTimeline, videoPresets } from "@/lib
 import { createBrowserProjectRepository, type ProjectRepository, type ProjectSummary } from "@/lib/project/repository";
 import { parseProjectConfig } from "@/lib/project/schema";
 import { applyProjectTemplate } from "@/lib/templates/apply-template";
+import { applyGeneratedStoryDraft } from "@/lib/story/project-story";
 import { moveScene as moveTimelineScene } from "@/lib/timeline/timeline";
 import { getProjectTemplate } from "@/templates";
 import type { ColumnMapping, DatasetColumn, NormalizedDataset, RawDataRow, ValidationIssue } from "@/types/data";
 import type { AspectRatioPreset, BarChartRaceConfig, ContentConfig, ProjectConfig, VideoConfig, VideoMode } from "@/types/project";
 import type { EventSettings, StoryScene } from "@/types/story";
+import type { GeneratedStoryDraft, StoryAssistantConfig } from "@/types/assistant";
+import type { PublishingContent, SourceMetadata } from "@/types/project";
 import type { AudioConfig, ExportConfig } from "@/types/export";
 import { getBarChartRaceTotalFrames } from "@/visualizations/bar-chart-race/state";
 
@@ -59,12 +62,18 @@ interface EditorStore {
   updateMapping: (role: keyof ColumnMapping, column: string) => void;
   applyTemplate: (templateId: string) => void;
   updateContent: (patch: Partial<ContentConfig>) => void;
+  updateSourceMetadata: (patch: Partial<SourceMetadata>) => void;
+  updatePublishing: (patch: Partial<PublishingContent>) => void;
+  updateStoryAssistant: (patch: Partial<StoryAssistantConfig>) => void;
+  applyStoryDraft: (draft: GeneratedStoryDraft) => void;
   updateVisualization: (patch: Partial<BarChartRaceConfig>) => void;
   updateEvents: (patch: Partial<EventSettings>) => void;
   updateExport: (patch: Partial<ExportConfig>) => void;
   applyExportToProject: () => void;
   updateAudio: (patch: Partial<AudioConfig>) => void;
   updateScene: (sceneId: string, update: (scene: StoryScene) => StoryScene) => void;
+  addTextScene: () => void;
+  deleteScene: (sceneId: string) => void;
   selectScene: (sceneId: string) => void;
   moveScene: (sceneId: string, direction: -1 | 1) => void;
   setTheme: (themeId: string) => void;
@@ -111,7 +120,7 @@ function syncVisualizationScene(project: ProjectConfig, dataset: NormalizedDatas
   return {
     ...project,
     timeline: {
-      scenes: project.timeline.scenes.map((scene) => scene.type === "visualization" ? { ...scene, durationFrames } : scene),
+      scenes: project.timeline.scenes.map((scene) => scene.id === "scene-visualization" ? { ...scene, durationFrames } : scene),
     },
   };
 }
@@ -332,6 +341,38 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     persistence: { ...state.persistence, dirty: true },
   })),
 
+  updateSourceMetadata: (patch) => set((state) => ({
+    project: markUpdated({ ...state.project, sourceMetadata: { ...state.project.sourceMetadata, ...patch } }),
+    persistence: { ...state.persistence, dirty: true },
+  })),
+
+  updatePublishing: (patch) => set((state) => ({
+    project: markUpdated({ ...state.project, publishing: { ...state.project.publishing, ...patch } }),
+    persistence: { ...state.persistence, dirty: true },
+  })),
+
+  updateStoryAssistant: (patch) => set((state) => ({
+    project: markUpdated({
+      ...state.project,
+      story: {
+        ...state.project.story,
+        ...patch,
+        adaptivePacing: patch.adaptivePacing
+          ? { ...state.project.story.adaptivePacing, ...patch.adaptivePacing }
+          : state.project.story.adaptivePacing,
+      },
+    }),
+    persistence: { ...state.persistence, dirty: true },
+  })),
+
+  applyStoryDraft: (draft) => set((state) => {
+    return {
+      project: markUpdated(applyGeneratedStoryDraft(state.project, draft)),
+      playback: { ...state.playback, currentFrame: 0, playing: false, selectedSceneId: draft.timeline.scenes[0]?.id ?? "" },
+      persistence: { ...state.persistence, dirty: true },
+    };
+  }),
+
   updateVisualization: (patch) => {
     const project = markUpdated({ ...get().project, visualization: { ...get().project.visualization, ...patch } });
     const synced = patch.secondsPerPeriod ? syncVisualizationScene(project, get().dataset.normalized) : project;
@@ -366,6 +407,42 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     }),
     persistence: { ...state.persistence, dirty: true },
   })),
+
+  addTextScene: () => set((state) => {
+    const scene: StoryScene = {
+      id: `scene-text-${projectId()}`,
+      type: "text",
+      enabled: true,
+      durationFrames: state.project.video.fps * 5,
+      entryTransition: { type: "fade", durationFrames: Math.round(state.project.video.fps * 0.4) },
+      config: { eyebrow: "STORY BEAT", title: "Add a grounded insight", body: "Edit this scene with context drawn from your dataset.", kind: "context" },
+    };
+    const selectedIndex = state.project.timeline.scenes.findIndex((item) => item.id === state.playback.selectedSceneId);
+    const insertionIndex = selectedIndex < 0 ? state.project.timeline.scenes.length : selectedIndex + 1;
+    const scenes = [...state.project.timeline.scenes];
+    scenes.splice(insertionIndex, 0, scene);
+    return {
+      project: markUpdated({ ...state.project, timeline: { scenes } }),
+      playback: { ...state.playback, selectedSceneId: scene.id, playing: false },
+      persistence: { ...state.persistence, dirty: true },
+    };
+  }),
+
+  deleteScene: (sceneId) => set((state) => {
+    if (state.project.timeline.scenes.length <= 1) return state;
+    const index = state.project.timeline.scenes.findIndex((scene) => scene.id === sceneId);
+    const scenes = state.project.timeline.scenes.filter((scene) => scene.id !== sceneId);
+    return {
+      project: markUpdated({ ...state.project, timeline: { scenes } }),
+      playback: {
+        ...state.playback,
+        selectedSceneId: state.playback.selectedSceneId === sceneId ? (scenes[Math.max(0, index - 1)]?.id ?? scenes[0]?.id ?? "") : state.playback.selectedSceneId,
+        currentFrame: 0,
+        playing: false,
+      },
+      persistence: { ...state.persistence, dirty: true },
+    };
+  }),
 
   selectScene: (selectedSceneId) => set((state) => ({ playback: { ...state.playback, selectedSceneId } })),
   moveScene: (sceneId, direction) => set((state) => ({

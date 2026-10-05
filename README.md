@@ -1,6 +1,6 @@
 # DataPulse
 
-DataPulse is a private visual-storytelling studio for turning structured datasets into deterministic, social-media-ready MP4 videos. Phase 3 adds production export around the shared Phase 1/2 engine: Remotion frames, FFmpeg encoding, audio, asset caching, render jobs, and downloadable output.
+DataPulse is a private visual-storytelling studio for turning structured datasets into deterministic, social-media-ready MP4 videos. Phase 4 adds assisted production on top of the shared preview/export engine: normalized-data analysis, richer story events, grounded copy suggestions, editable short/long drafts, adaptive pacing, source metadata, and quality guidance. No AI key is required.
 
 The product model is deliberately broader than one chart:
 
@@ -23,7 +23,7 @@ Raw data → Mapping → Normalized data → Visualization state → Story → F
 - Title, subtitle, source, footer, bar, format, and motion controls
 - Four built-in datasets for immediate exploration
 - Local create, save, load, duplicate, rename, and delete project workflows
-- Versioned project JSON with validation and a Phase 1 → Phase 2 migration
+- Versioned schema-v4 project JSON with validation and Phase 1–3 migrations
 - Five reusable templates that preserve the current dataset and story copy
 - Circle, rounded, and square entity marks with deterministic initial fallback
 - Hook, visualization, final-ranking, and outro scenes in one scene registry
@@ -36,19 +36,30 @@ Raw data → Mapping → Normalized data → Visualization state → Story → F
 - Local sequential render queue with progress, cancellation, failures, history, and collision-safe downloads
 - MP3/WAV soundtrack upload with offset, trimming, volume, fades, and optional looping
 - Content-addressed remote/embedded image resolution into job-local render assets
+- Versioned dataset analysis with summary statistics, per-entity arcs, and interesting-period detection
+- Rich event scoring, confidence, clustering, and grounded reasons across 16 event types
+- Deterministic story angles, hooks, titles, captions, source attribution, annotations, and final takeaways
+- Three short-form and five long-form story-planning presets
+- Editable generated text beats and period-bounded visualization chapters
+- Configurable deterministic adaptive pacing that slows around high-interest periods
+- Content-quality guidance for hooks, event beats, sources, takeaways, and scene variety
+- Provider-neutral content generation with the rule-based provider enabled by default
+- Headless single-project and batch draft APIs for future automation
 
-Cloud persistence, assisted storytelling, and batch/headless commands remain future work.
+Cloud persistence, an optional external AI adapter, batch rendering commands, and additional visualization plugins remain future work.
 
 ## Production workflow
 
 1. Open **Projects** to create or restore a local project.
 2. Import CSV/JSON or choose a bundled dataset and confirm its column mapping.
 3. Open **Templates** to apply design, pacing, safe-area, and annotation defaults without replacing data or copy.
-4. Use the **Story** inspector and scene timeline to select, reorder, enable, and time scenes.
-5. Configure detected moments, minimum importance, frequency, and milestones.
-6. Open **Export video**, select a platform preset, quality, and optional soundtrack.
-7. Apply the target dimensions to preview when desired, then render, monitor, and download the MP4.
-8. Save the project. The full dataset and serializable configuration reopen in the browser later.
+4. Open **Story → Assist** to review insights, choose a story angle, apply a hook/title, and generate grounded publishing copy.
+5. Preview a short-form or long-form draft, then explicitly apply it. Generation never overwrites the timeline until this step.
+6. Open **Story → Edit scenes** to edit, add, delete, reorder, enable, and time every generated scene.
+7. Configure adaptive pacing, detected moments, maximum annotations, minimum importance, frequency, and milestones.
+8. Open **Export video**, select a platform preset, quality, and optional soundtrack.
+9. Apply the target dimensions to preview when desired, then render, monitor, and download the MP4.
+10. Save the project. The full dataset and serializable configuration reopen in the browser later.
 
 Projects currently use browser `localStorage`. This is deliberately behind `ProjectRepository`, so a file, database, or cloud implementation can replace it without changing the editor. Browser storage quotas make it suitable for personal projects and moderate datasets, not a long-term media library.
 
@@ -100,15 +111,25 @@ const state = definition.getStateAtFrame({
 
 ## Projects, templates, and scenes
 
-`ProjectConfig` schema version 3 embeds the raw scalar dataset, mapping, visualization settings, video mode, scenes/transitions, event settings, export settings, optional audio settings, and timestamps. Normalized data remains derived so persisted source fields never leak into renderers. Zod validates saved projects and render requests before they enter the store or queue.
+`ProjectConfig` schema version 4 embeds the raw scalar dataset, mapping, visualization settings, video mode, scenes/transitions, event settings, source metadata, publishing copy, story-assistant choices, adaptive pacing, export settings, optional audio settings, and timestamps. Normalized data and analysis remain derived so persisted source fields never leak into renderers. Zod validates saved projects and render requests before they enter the store or queue, and migrates Phase 1–3 documents.
 
 Templates are serializable configuration objects. Applying one updates theme, visualization treatment, pacing, scene defaults, video preset, safe area, and event selection while keeping dataset, mapping, and authored copy intact.
 
-The timeline is an ordered list of discriminated `StoryScene` values. Each enabled scene owns a frame duration and serializable config. `getActiveScene` maps an absolute story frame to a scene-local frame. The current registry provides hook, visualization, final ranking, and outro renderers. The final ranking calls the shared bar-chart state logic at its final frame instead of implementing a separate ranking path.
+The timeline is an ordered list of discriminated `StoryScene` values. Each enabled scene owns a frame duration and serializable config. `getActiveScene` maps an absolute story frame to a scene-local frame. The current registry provides hook, text/context, visualization, final ranking, and outro renderers. Visualization scenes may target a bounded period range, allowing long-form chapters without duplicating datasets. The final ranking calls the shared bar-chart state logic at its final frame instead of implementing a separate ranking path.
 
 ## Events and annotations
 
 Detection in `src/lib/events/` is pure business logic over normalized data. It returns structured event metadata and 0–100 importance scores. A separate presentation layer creates human-readable copy; the scheduler applies enabled types, minimum importance, frequency limits, duration, and spacing before rendering an annotation. Annotation cards use each theme's serializable annotation tokens and entity highlights are passed into the shared visualization renderer.
+
+## Analysis and assisted storytelling
+
+`analyzeNormalizedDataset` creates a reusable `DatasetAnalysis` document containing time/entity summaries, entity statistics, scored events, milestones, and interesting periods. `analyzeProject` adds a small in-memory cache keyed only by analysis version, dataset rows, mapping, and event-analysis settings; title, theme, font, and other visual edits do not invalidate it.
+
+The default rule-based content provider turns that analysis into story candidates, hooks, titles, captions, source attribution, annotations, and a final takeaway. Suggestions explain the measured reason behind them and use only normalized data plus project/source metadata. The provider-neutral `ContentAIProvider` interface can support an opt-in model later without changing the planner or editor.
+
+Short-form generation includes Fast Race, Story Short, and Dramatic Rise/Fall. Long-form generation includes Data Documentary, Ranking History, Rise and Fall, Head to Head, and Decade by Decade. Drafts are ordinary serializable scene timelines; users preview them before applying, then edit them with the same timeline and renderer used by hand-authored projects.
+
+Adaptive pacing assigns deterministic interval weights from interesting-period scores. Low-change intervals consume less scene time, while high-interest intervals consume more, without changing total scene duration or relying on runtime animation state.
 
 ## Entity images
 
@@ -177,12 +198,21 @@ Event detection lives in `src/lib/events/` and runs against normalized data. Ext
 - uploaded audio, trim, volume, and fades
 - export history and retry
 
-### Phase 4 — assisted production
+### Phase 4 — assisted production (implemented)
 
-- rule-based hooks and story suggestions
-- optional provider-neutral AI adapters
-- batch/headless `render-video project.json`
-- additional visualization plugins
+- dataset analysis, event scoring, clustering, and interesting periods
+- rule-based story angles, hooks, titles, captions, takeaways, and annotations
+- editable short-form and chaptered long-form draft generation
+- adaptive pacing and content-quality guidance
+- source metadata and grounded-copy rules
+- provider-neutral AI interface plus headless/batch draft foundation
+
+### Future directions
+
+- optional configured AI provider implementation
+- batch review and `render-video project.json` CLI
+- additional visualization and scene plugins
+- cloud/media-library persistence
 
 ## Project documentation
 

@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 
 export function FieldLabel({ children, detail }: { children: ReactNode; detail?: ReactNode }) {
   return (
@@ -14,6 +14,15 @@ export function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
     <input
       {...props}
       className={`h-9 w-full rounded-lg border border-white/8 bg-white/[0.045] px-3 text-xs text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-violet-400/60 focus:bg-white/[0.065] ${props.className ?? ""}`}
+    />
+  );
+}
+
+export function TextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      {...props}
+      className={`min-h-20 w-full resize-y rounded-lg border border-white/8 bg-white/[0.045] px-3 py-2 text-xs leading-5 text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-violet-400/60 focus:bg-white/[0.065] ${props.className ?? ""}`}
     />
   );
 }
